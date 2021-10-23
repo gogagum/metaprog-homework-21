@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "MappingTools.hpp"
+#include "string_mapper.hpp"
 
 struct Base {
   virtual ~Base() = default;

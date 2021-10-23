@@ -4,10 +4,15 @@
 
 #include <optional>
 #include <iostream>
+#include <array>
+#include <cstring>
+#include <string_view>
 
-#ifndef TASK01__MAPPINGTOOLS_HPP_
-#define TASK01__MAPPINGTOOLS_HPP_
+#ifndef TASK1__STRING_MAPPER_HPP_
+#define TASK1__STRING_MAPPER_HPP_
 
+////////////////////////////////////////////////////////////////////////////////
+// Mapping
 template <class From, auto target>
 struct Mapping {
   using From_ = From;
@@ -55,4 +60,27 @@ class ClassMapper {
   };
 };
 
-#endif //TASK01__MAPPINGTOOLS_HPP_
+////////////////////////////////////////////////////////////////////////////////
+// String
+template <size_t max_length>
+struct String {
+    constexpr String(const char* str, size_t len) {
+        _len = len;
+        for (size_t i = 0; i < len; ++i)
+        {
+            _chars[i] = str[i];
+        }
+    }
+    constexpr operator std::string_view () const {
+        return {_chars, _len};
+    }
+
+    size_t _len;
+    char _chars[max_length];
+};
+
+constexpr String<256> operator ""_cstr(const char* str, size_t len) {
+    return {str, len};
+}
+
+#endif //TASK1__STRING_MAPPER_HPP_
