@@ -3,4 +3,4 @@ project(task1)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(task1 main.cpp MappingTools.hpp)
+add_executable(task1 main.cpp string_mapper.hpp)
