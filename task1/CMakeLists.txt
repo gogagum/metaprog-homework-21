@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
-project(task01)
+project(task1)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(task01 main.cpp MappingTools.hpp)
+add_executable(task1 main.cpp MappingTools.hpp)
