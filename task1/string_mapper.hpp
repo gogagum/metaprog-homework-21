@@ -37,10 +37,23 @@ class ClassMapper {
 
  private:
 
+  template <class TakenMapping>
+  struct MappingChecker {
+      constexpr static void checkTakenMapping() {
+          using From = typename TakenMapping::From_;
+          using ExpectedMapping = Mapping<From, TakenMapping::getTarget()>;
+          static_assert(std::is_same_v<TakenMapping, ExpectedMapping>);
+          static_assert(std::derived_from<From, Base>);
+          static_assert(std::is_same_v<decltype(TakenMapping::getTarget()), Target> ||
+              std::is_same_v<decltype(TakenMapping::getTarget()), const Target>);
+      }
+  };
+
   template <class TakenMapping, class... Mappings_>
   struct MapImpl {
     static std::optional<Target> mapImpl(const Base& object) {
         auto* objPtr = dynamic_cast<const typename TakenMapping::From_*>(&object);
+        MappingChecker<TakenMapping>::checkTakenMapping();
         if (objPtr) {
             return std::make_optional(TakenMapping::getTarget());
         }
@@ -52,6 +65,7 @@ class ClassMapper {
   struct MapImpl<TakenMapping> {
     static std::optional<Target> mapImpl(const Base& object) {
         auto* objPtr = dynamic_cast<const typename TakenMapping::From_*>(&object);
+        MappingChecker<TakenMapping>::checkTakenMapping();
         if (objPtr) {
             return std::make_optional(TakenMapping::getTarget());
         }
