@@ -2,6 +2,11 @@
 
 #include "type_lists.hpp"
 
+template <typename T>
+struct IsIntegral {
+  const static bool Value = std::integral<T>;
+};
+
 int main() {
 
     // Проверки того, что TypeLists::TypeListStruct соответствует концепту
@@ -55,6 +60,24 @@ int main() {
         TypeLists::TypeSequence<TypeLists::Repeat<int>>
     );
 
+    using RepeatTestTypeList = TypeLists::Repeat<float>;
+    static_assert(std::is_same_v<RepeatTestTypeList::Head, float>);
+
+    using ThreeFloats = TypeLists::Take<3, RepeatTestTypeList>;
+    using FiveFloats = TypeLists::Take<5, RepeatTestTypeList>;
+
+    using ThreeFloatsTTuple = TypeLists::ConvertToTTuple<ThreeFloats>;
+    using FiveFloatsTTuple = TypeLists::ConvertToTTuple<FiveFloats>;
+
+    static_assert(std::is_same_v<ThreeFloatsTTuple,
+                                 TypeLists::TTuple<float, float, float>>);
+
+    static_assert(std::is_same_v<FiveFloatsTTuple,
+                                 TypeLists::TTuple<float, float, float, float, float>>);
+
+    static_assert(std::is_same_v<RepeatTestTypeList,
+                                 typename RepeatTestTypeList::Tail>);
+
     ////////////////////////////////////////////////////////////////////////////
     // Take                                                                   //
     ////////////////////////////////////////////////////////////////////////////
@@ -68,6 +91,52 @@ int main() {
     ////////////////////////////////////////////////////////////////////////////
     // Drop                                                                   //
     ////////////////////////////////////////////////////////////////////////////
+    using DropTestTuple = TypeLists::TTuple<int, float, double, long long>;
+    using DropTestList = TypeLists::ConvertToTypeList<DropTestTuple>;
+    using DropResult = TypeLists::Drop<2, DropTestList>;
+    using DropResultTTuple = TypeLists::ConvertToTTuple<DropResult>;
+
+    static_assert(std::is_same_v<DropResultTTuple, TypeLists::TTuple<double, long long>>);
+    static_assert(std::is_same_v<DropResult::Head, double>);
+    static_assert(std::is_same_v<DropResult::Tail::Head, long long>);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Replicate                                                              //
+    ////////////////////////////////////////////////////////////////////////////
+
+    using Replicated = TypeLists::Replicate<2, size_t>;
+
+    static_assert(std::is_same_v<Replicated::Head, size_t>);
+    static_assert(std::is_same_v<Replicated::Tail::Head, size_t>);
+
+    using ReplicatedToTTuple = TypeLists::ConvertToTTuple<Replicated>;
+
+    static_assert(std::is_same_v<ReplicatedToTTuple,
+                                 TypeLists::TTuple<size_t, size_t>>);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Filter                                                                 //
+    ////////////////////////////////////////////////////////////////////////////
+
+    using ToFilterTuple1 = TypeLists::TTuple<float, double, double>;
+    using ToFilterList1 = TypeLists::ConvertToTypeList<ToFilterTuple1>;
+
+    using FilteredList1 = TypeLists::Filter<IsIntegral, ToFilterList1>;
+
+    using FilteredListToTuple1 = TypeLists::ConvertToTTuple<FilteredList1>;
+
+    static_assert(std::is_same_v<FilteredListToTuple1,
+                                 TypeLists::TTuple<>>);
+
+    using ToFilterTuple2 = TypeLists::TTuple<char, float, int>;
+    using ToFilterList2 = TypeLists::ConvertToTypeList<ToFilterTuple2>;
+
+    using FilteredList2 = TypeLists::Filter<IsIntegral, ToFilterList2>;
+
+    using FilteredListToTuple2 = TypeLists::ConvertToTTuple<FilteredList2>;
+
+    static_assert(std::is_same_v<FilteredListToTuple2,
+                                 TypeLists::TTuple<char, int>>);
 
 
 

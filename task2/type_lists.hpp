@@ -66,25 +66,25 @@ class ConcatHelper {
 template <TypeList TL>
 struct ConvertToTTupleImpl;
 
-template <>
-struct ConvertToTTupleImpl<Nil>{
-  using Converted = TTuple<>;
+template <Empty TE>
+struct ConvertToTTupleImpl<TE>{
+  using Converted [[maybe_unused]] = TTuple<>;
 };
 
-template <TypeList TL>
-struct ConvertToTTupleImpl{
+template <TypeSequence TS>
+struct ConvertToTTupleImpl<TS>{
  private:
-  using ConvertedTail = ConvertToTTupleImpl<typename TL::Tail>;
+  using ConvertedTail = ConvertToTTupleImpl<typename TS::Tail>;
   /*
    * Вспомогательная функция преобразования из TypeList в TTuple.
    */
   template<class... TailClasses>
-  static TTuple<typename TL::Head, TailClasses...>
+  [[maybe_unused]] static TTuple<typename TS::Head, TailClasses...>
   convertImpl(TTuple<TailClasses...>)  {
       return {};
   }
 
-  static TTuple<typename TL::Head>
+  [[maybe_unused]] static TTuple<typename TS::Head>
   convertImpl(TTuple<>) {
       return {};
   }
@@ -93,7 +93,8 @@ struct ConvertToTTupleImpl{
   /*
    * Преобразование к TTuple
    */
-  using Converted = decltype(convertImpl(std::declval<typename ConvertedTail::Converted>()));
+  using Converted [[maybe_unused]] =
+      decltype(convertImpl(std::declval<typename ConvertedTail::Converted>()));
 };
 
 /*
@@ -239,30 +240,160 @@ struct Map {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Filter
-template <class P, TypeList TL>
-struct Filter {
-  template <bool takeHead>
-  static auto filterImpl();
 
-  template <>
-  static TypeListStruct<typename TL::Head, Filter<P, typename TL::Tail>>
-  filterImpl<true>() {
-      return {};
-  }
+template <template <typename Arg> class P, TypeList TL>
+struct Filter;
 
-  template  <>
-  static Filter<P, typename TL::Tail> filterImpl<false>()  {
-      return {};
-  }
+template <template <typename Arg> class P, TypeSequence TS>
+struct Filter<P, TS>;
 
-  using Ret =
-      decltype(filterImpl(std::declval<P::template Value<typename TL::Head>>()));
-  using Head = typename Ret::Head;
-  using Tail = typename Ret::Tail;
+template <template <typename Arg> class P, Empty TE>
+struct Filter<P, TE>;
+
+template <template <typename Arg> class P, class TLHead, TypeList TLTail>
+struct FilterImpl;
+
+template <template <typename Arg> class P, class TLHead, TypeSequence TLTail>
+struct FilterImpl<P, TLHead, TLTail> {
+  template <bool takeFirst>
+  struct HeadDecision;
+
+  template<>
+  struct HeadDecision<true> {
+    using Head = TLHead;
+    using Tail = Filter<P, TLTail>;
+  };
+
+  template<>
+  struct HeadDecision<false> : public Filter<P, TLTail>{};
+
+  using Ret = HeadDecision<P<TLHead>::Value>;
+};
+
+template <template <typename Arg> class P, class TLHead, Empty EmptyTLTail>
+struct FilterImpl<P, TLHead, EmptyTLTail> {
+  template <bool takeFirst>
+  struct HeadDecision;
+
+  template<>
+  struct HeadDecision<true> {
+    using Head = TLHead;
+    using Tail = Nil;
+  };
+
+  template<>
+  struct HeadDecision<false> : Nil {};
+
+  using Ret = HeadDecision<P<TLHead>::Value>;
 };
 
 
+template <template <typename Arg> class P, TypeSequence TS>
+struct Filter<P, TS> : public FilterImpl<P, typename TS::Head, typename TS::Tail>::Ret {};
 
+template <template <typename Arg> class P, Empty TE>
+struct Filter<P, TE> : public Nil {};
+
+/*
+ * Iterate
+ */
+template <template <typename Arg> class F, class T>
+struct Iterate {
+  using Head = T;
+  using Tail = Iterate<F, F<T>>;
+};
+
+/*
+ * Cycle
+ */
+template <TypeList TL>
+struct Cycle;
+
+template <TypeSequence TS>
+struct Cycle<TS>{
+ private:
+  template <TypeList CurrTL>
+  struct CycleImpl;
+
+  template <TypeSequence CurrTL>
+  struct CycleImpl<CurrTL>{
+    using Head = typename CurrTL::Head;
+    using Tail = CycleImpl<typename CurrTL::Tail>;
+  };
+
+  template <Empty EmptyTL>
+  struct CycleImpl<EmptyTL> : CycleImpl<TS>{};
+
+  using CycleRet = CycleImpl<TS>;
+
+ public:
+
+  using Head = typename CycleRet::Head;
+  using Tail = typename CycleRet::Tail;
+};
+
+template <Empty TE>
+struct Cycle<TE> : public Nil {};
+
+/*
+ * Inits
+ */
+template <TypeList TL>
+struct Inits;
+
+template <TypeSequence TS>
+struct Inits<TS> {
+ private:
+  template <size_t N, TypeList Tail>
+  struct InitsImpl;
+
+  template <size_t N, TypeSequence Tail_>
+  struct InitsImpl<N, Tail_> {
+    using Head = Take<N, TS>;
+    using Tail = InitsImpl<N + 1, typename Tail_::Tail>;
+  };
+
+  template <size_t N, Empty EmptyTail>
+  struct InitsImpl<N, EmptyTail>{
+      using Head = Take<N, TS>;
+      using Tail = Nil;
+  };
+
+  using InitsRet = InitsImpl<1, typename TS::Tail>;
+ public:
+  using Head = typename InitsRet::Head;
+  using Tail = typename InitsRet::Tail;
+};
+
+/*
+ * Tails
+ */
+template <TypeList TL>
+struct Tails;
+
+template <TypeSequence TS>
+struct Tails<TS> {
+  using Head = typename TS::Tail;
+  using Tail = Tails<typename TS::Tail>;
+};
+
+template <Empty TE>
+struct Tails<TE> : public Nil {};
+
+/*
+ * Scanl
+ */
+template <template <class Arg1, class Arg2> class OP, typename T, TypeList TL>
+struct Scanl;
+
+template <template <class Arg1, class Arg2> class OP, typename T, TypeSequence TS>
+struct Scanl<OP, T, TS> {
+  using Head = OP<T, typename TS::Head>;
+  using Tail = Scanl<OP, typename TS::Head, typename TS::Tail>;
+};
+
+template <template <class Arg1, class Arg2> class OP, typename T, Empty TE>
+struct Scanl<OP, T, TE> : public Nil {};
 
 
 
