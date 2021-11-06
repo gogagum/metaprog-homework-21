@@ -395,6 +395,68 @@ struct Scanl<OP, T, TS> {
 template <template <class Arg1, class Arg2> class OP, typename T, Empty TE>
 struct Scanl<OP, T, TE> : public Nil {};
 
+/*
+ * Foldl
+ */
+
+template <template <class Arg1, class Arg2> class OP, typename T, TypeList TL>
+struct FoldlImpl;
+
+template <template<class Arg1, class Arg2> class OP, typename T, TypeSequence TS>
+struct FoldlImpl<OP, T, TS> {
+  using Ret = FoldlImpl<OP, OP<T, typename TS::Head>, typename TS::Tail>;
+};
+
+template <template<class Arg1, class Arg2> class OP, typename T, Empty TE>
+struct FoldlImpl<OP, T, TE> {
+  using Ret = T;
+};
+
+template <template <class Arg1, class Arg2> class OP, typename T, TypeList TL>
+using Foldl = typename FoldlImpl<OP, T, TL>::Ret;
+
+/*
+ * Zip2
+ */
+
+template <TypeList TL1, TypeList TL2>
+struct Zip2;
+
+template <TypeSequence TS1, TypeSequence TS2>
+struct Zip2<TS1, TS2> {
+  using Head = ConvertToTypeList<TTuple<typename TS1::Head, typename TS2::Head>>;
+  using Tail = Zip2<typename TS1::Tail, typename TS2::Tail>;
+};
+
+template <TypeSequence TS, Empty TE>
+struct Zip2<TS, TE> : public Nil {};
+
+template <Empty TE, TypeSequence TS>
+struct Zip2<TE, TS> : public Nil {};
+
+/*
+ * Zip
+ */
+
+template <TypeList... TLs>
+struct ZipImpl;
+
+template <TypeSequence TS, TypeList... TLs>
+struct ZipImpl<TS, TLs...>{
+  using Ret = Zip2<TS, typename ZipImpl<TLs...>::Ret>;
+};
+
+template <TypeSequence TS>
+struct ZipImpl<TS>{
+  using Ret = TS;
+};
+
+template <TypeList... TLs>
+using Zip = ZipImpl<TLs...>;
+
+/*
+ * GroupBy
+ */
 
 
 
