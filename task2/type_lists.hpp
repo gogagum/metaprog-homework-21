@@ -5,6 +5,8 @@
 #ifndef TYPE_LISTS_HPP_
 #define TYPE_LISTS_HPP_
 
+#include <concepts>
+
 namespace TypeLists {
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -41,30 +43,15 @@ struct TypeListStruct {
   using Tail [[maybe_unused]] = TL;
 };
 
-template <typename T>
-struct TypeListFromSingle{
-  using Head = T;
-  using Tail = Nil;
-};
-
 /*
  * struct TTuple
  */
 template<class... Ts>
 struct TTuple {};
 
-template <class T>
-class ConcatHelper {
-  ConcatHelper() = default;
-
- public:
-  template <TypeList TL>
-  static TypeListStruct<T, TL> prependReturn(TL) {
-      return {};
-  }
-};
-
-
+/*
+ * Concat
+ */
 template <TypeList TL1, TypeList TL2>
 struct Concat;
 
@@ -170,21 +157,21 @@ struct ConvertToTypeList {
   }
 
  public:
-
   using Head [[maybe_unused]] = decltype(getHeadImpl(std::declval<TTupleInput>()));
   using Tail [[maybe_unused]] = decltype(getTailImpl(std::declval<TTupleInput>()));
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Cons - добавление элемента в бесконечный списокty
+// Cons - добавление элемента в TypeList
 template <class T, TypeList TL>
-using Cons =
-    decltype(
-        ConcatHelper<T>::prependReturn(std::declval<TL>())
-    );
+struct Cons {
+  using Head = T;
+  using Tail = TL;
+};
 
-////////////////////////////////////////////////////////////////////////////////
-// Repeat - бесконечное повторение типа
+/*
+ * Repeat - бесконечное повторение типа
+ */
 template <class T>
 struct Repeat {
   using Head = T;
@@ -193,60 +180,44 @@ struct Repeat {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Take - взять первые N элементов из TypeList TL
-template <size_t N, TypeList TL>
-struct Take {
-  using Head = typename TL::Head;
-  using Tail = Take<N-1, typename TL::Tail>;
-};
+template <std::size_t N, TypeList TL>
+struct Take : Cons<typename TL::Head, Take<N-1, typename TL::Tail>> { };
 
 template <TypeList TL>
-struct Take<1, TL> {
-  using Head = typename TL::Head;
-  using Tail = Nil;
-};
+struct Take<1, TL> : Cons<typename TL::Head, Nil> {};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Drop - взять всё, кроме первых N элементов из TL
-template <size_t N, TypeList TL>
+template <std::size_t N, TypeList TL>
 struct Drop {
- private:
-  using DroppedTail = Drop<N-1, typename TL::Tail>;
- public:
-  using Head = typename DroppedTail::Head;
-  using Tail = typename DroppedTail::Tail;
+  using Head [[maybe_unused]] = typename Drop<N-1, typename TL::Tail>::Head;
+  using Tail = typename Drop<N-1, typename TL::Tail>::Tail;
 };
 
-template <TypeList TL>
-struct Drop<0, TL> {
-  using Head = typename TL::Head;
-  using Tail = typename TL::Tail;
+template <TypeSequence TS>
+struct Drop<0, TS> {
+  using Head [[maybe_unused]] = typename TS::Head;
+  using Tail = typename TS::Tail;
 };
+
+template <Empty TE>
+struct Drop<0, TE> : public Nil {};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Replicate - N раз повторять тип T
-template <size_t N, typename T>
-struct Replicate {
-  using Head = T;
-  using Tail = Replicate<N-1, T>;
-};
+template <std::size_t N, typename T>
+struct Replicate : Cons<T, Replicate<N-1, T>> {};
 
 template <typename T>
-struct Replicate<1, T>{
-  using Head = T;
-  using Tail = Nil;
-};
+struct Replicate<1, T> : Cons<T, Nil> {};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Map список из результатов применения F к элементам TL
 template <template<typename T> class F, TypeList TL>
 struct Map;
 
-
 template <template<typename T> class F, TypeSequence TS>
-struct Map<F, TS> {
-  using Head = F<typename TS::Head>;
-  using Tail = Map<F, typename TS::Tail>;
-};
+struct Map<F, TS> : Cons<F<typename TS::Head>, Map<F, typename TS::Tail>> {};
 
 template <template<typename T> class F, Empty TE>
 struct Map<F, TE> : public Nil {};
@@ -254,58 +225,54 @@ struct Map<F, TE> : public Nil {};
 ////////////////////////////////////////////////////////////////////////////////
 // Filter
 
+
 template <template <typename Arg> class P, TypeList TL>
-struct Filter;
-
-template <template <typename Arg> class P, TypeSequence TS>
-struct Filter<P, TS>;
-
-template <template <typename Arg> class P, Empty TE>
-struct Filter<P, TE>;
+struct Filter : public Nil {};
 
 template <template <typename Arg> class P, class TLHead, TypeList TLTail>
 struct FilterImpl;
 
 template <template <typename Arg> class P, class TLHead, TypeSequence TLTail>
 struct FilterImpl<P, TLHead, TLTail> {
-  template <bool takeFirst>
-  struct HeadDecision;
-
-  template<>
-  struct HeadDecision<true> {
-    using Head = TLHead;
-    using Tail = Filter<P, TLTail>;
-  };
-
-  template<>
-  struct HeadDecision<false> : public Filter<P, TLTail>{};
-
-  using Ret = HeadDecision<P<TLHead>::Value>;
+ private:
+    struct HeadDecision{
+      [[maybe_unused]] constexpr static Cons<TLHead, typename FilterImpl<P, typename TLTail::Head, typename TLTail::Tail>::Ret>
+      headDecision(std::bool_constant<true>) {
+          return {};
+      }
+      [[maybe_unused]] constexpr static typename FilterImpl<P, typename TLTail::Head, typename TLTail::Tail>::Ret
+      headDecision(std::bool_constant<false>) {
+          return {};
+      }
+    };
+ public:
+    using Ret =
+        decltype(HeadDecision::headDecision(
+            std::declval<std::bool_constant<P<TLHead>::Value>>()));
 };
 
 template <template <typename Arg> class P, class TLHead, Empty EmptyTLTail>
 struct FilterImpl<P, TLHead, EmptyTLTail> {
-  template <bool takeFirst>
-  struct HeadDecision;
-
-  template<>
-  struct HeadDecision<true> {
-    using Head = TLHead;
-    using Tail = Nil;
+ private:
+  struct HeadDecision{
+    constexpr static Cons<TLHead, Nil>
+    headDecision(std::bool_constant<true>) {
+        return {};
+    }
+    constexpr static Nil
+    headDecision(std::bool_constant<false>) {
+        return {};
+    }
   };
-
-  template<>
-  struct HeadDecision<false> : Nil {};
-
-  using Ret = HeadDecision<P<TLHead>::Value>;
+ public:
+  using Ret =
+      decltype(HeadDecision::headDecision(
+          std::declval<std::bool_constant<P<TLHead>::Value>>()));
 };
 
 
 template <template <typename Arg> class P, TypeSequence TS>
-struct Filter<P, TS> : public FilterImpl<P, typename TS::Head, typename TS::Tail>::Ret {};
-
-template <template <typename Arg> class P, Empty TE>
-struct Filter<P, TE> : public Nil {};
+struct Filter<P, TS> : FilterImpl<P, typename TS::Head, typename TS::Tail>::Ret {};
 
 /*
  * Iterate
@@ -320,7 +287,7 @@ struct Iterate {
  * Cycle
  */
 template <TypeList TL>
-struct Cycle;
+struct Cycle : Nil {};
 
 template <TypeSequence TS>
 struct Cycle<TS>{
@@ -331,11 +298,14 @@ struct Cycle<TS>{
   template <TypeSequence CurrTL>
   struct CycleImpl<CurrTL>{
     using Head = typename CurrTL::Head;
-    using Tail = CycleImpl<typename CurrTL::Tail>;
+    using Tail [[maybe_unused]] = CycleImpl<typename CurrTL::Tail>;
   };
 
   template <Empty EmptyTL>
-  struct CycleImpl<EmptyTL> : CycleImpl<TS>{};
+  struct CycleImpl<EmptyTL> {
+    using Head = typename TS::Head;
+    using Tail [[maybe_unused]] = typename CycleImpl<TS>::Tail;
+  };
 
   using CycleRet = CycleImpl<TS>;
 
@@ -344,9 +314,6 @@ struct Cycle<TS>{
   using Head = typename CycleRet::Head;
   using Tail = typename CycleRet::Tail;
 };
-
-template <Empty TE>
-struct Cycle<TE> : public Nil {};
 
 /*
  * Inits
@@ -357,16 +324,16 @@ struct Inits;
 template <TypeSequence TS>
 struct Inits<TS> {
  private:
-  template <size_t N, TypeList Tail>
+  template <std::size_t N, TypeList Tail>
   struct InitsImpl;
 
-  template <size_t N, TypeSequence Tail_>
+  template <std::size_t N, TypeSequence Tail_>
   struct InitsImpl<N, Tail_> {
     using Head = Take<N, TS>;
     using Tail = InitsImpl<N + 1, typename Tail_::Tail>;
   };
 
-  template <size_t N, Empty EmptyTail>
+  template <std::size_t N, Empty EmptyTail>
   struct InitsImpl<N, EmptyTail>{
       using Head = Take<N, TS>;
       using Tail = Nil;
@@ -399,24 +366,22 @@ struct Scanl : public Nil {};
 template <template <class Arg1, class Arg2> class OP, typename T, TypeSequence TS>
 struct Scanl<OP, T, TS> {
   using Head = OP<T, typename TS::Head>;
-  using Tail = Scanl<OP, Head, typename TS::Tail>;
+  using Tail [[maybe_unused]] = Scanl<OP, Head, typename TS::Tail>;
 };
 
 /*
  * Foldl
  */
 
-template <template <class Arg1, class Arg2> class OP, typename T, TypeList TL>
-struct FoldlImpl;
-
-template <template<class Arg1, class Arg2> class OP, typename T, TypeSequence TS>
-struct FoldlImpl<OP, T, TS> {
-  using Ret = typename FoldlImpl<OP, OP<T, typename TS::Head>, typename TS::Tail>::Ret;
+template <template <typename, typename> class OP, typename T, TypeList TL>
+struct FoldlImpl {
+  using Ret = T;
 };
 
-template <template<class Arg1, class Arg2> class OP, typename T, Empty TE>
-struct FoldlImpl<OP, T, TE> {
-  using Ret = T;
+template <template<typename, typename> class OP, typename T, TypeSequence TS>
+struct FoldlImpl<OP, T, TS> {
+  using Ret =
+      typename FoldlImpl<OP, OP<T, typename TS::Head>, typename TS::Tail>::Ret;
 };
 
 template <template <class Arg1, class Arg2> class OP, typename T, TypeList TL>
@@ -427,22 +392,13 @@ using Foldl = typename FoldlImpl<OP, T, TL>::Ret;
  */
 
 template <TypeList TL1, TypeList TL2>
-struct Zip2;
+struct Zip2 : public Nil {};
 
 template <TypeSequence TS1, TypeSequence TS2>
 struct Zip2<TS1, TS2> {
   using Head = ConvertToTypeList<TTuple<typename TS1::Head, typename TS2::Head>>;
   using Tail = Zip2<typename TS1::Tail, typename TS2::Tail>;
 };
-
-template <Empty TE, TypeSequence TS>
-struct Zip2<TE, TS> : public Nil {};
-
-template <Empty TE, TypeSequence TS>
-struct Zip2<TS, TE> : public Nil {};
-
-template <Empty TE1, Empty TE2>
-struct Zip2<TE1, TE2> : public Nil {};
 
 /*
  * Zip
@@ -458,9 +414,9 @@ template <TypeSequence TS, TypeSequence ZippedOthers, TypeList FirstOfOthers, Ty
 struct ZipImpl<TS, ZippedOthers, FirstOfOthers, Others...> {
   using ZippedOthers_ = ZipImpl<FirstOfOthers, Zip<Others...>, Others...>;
 
-  using Head = Cons<typename TS::Head,
+  using Head [[maybe_unused]] = Cons<typename TS::Head,
                     typename ZippedOthers_::Head>;
-  using Tail = Zip<typename TS::Tail,
+  using Tail [[maybe_unused]] = Zip<typename TS::Tail,
                    typename FirstOfOthers::Tail,
                    typename Others::Tail...>;
 };
@@ -469,16 +425,19 @@ template <TypeSequence TS, TypeSequence ZippedOthers, TypeList FirstOfOthers, Ty
 struct ZipImpl<TS, ZippedOthers, FirstOfOthers, SecondOfOthers> {
   using ZippedOthers_ = ZipImpl<FirstOfOthers, Zip<SecondOfOthers>, SecondOfOthers>;
 
-  using Head = Cons<typename TS::Head, typename ZippedOthers_::Head>;
-  using Tail = Zip<typename TS::Tail,
-                   typename FirstOfOthers::Tail,
-                   typename SecondOfOthers::Tail>;
+  using Head [[maybe_unused]] = Cons<typename TS::Head,
+                                     typename ZippedOthers_::Head>;
+  using Tail [[maybe_unused]] = Zip<typename TS::Tail,
+                                    typename FirstOfOthers::Tail,
+                                    typename SecondOfOthers::Tail>;
 };
 
 template <TypeSequence TS, TypeSequence ZippedOthers, TypeSequence OnlyOfOthers>
 struct ZipImpl<TS, ZippedOthers, OnlyOfOthers> {
-  using Head = Cons<typename TS::Head, typename ZippedOthers::Head>;
-  using Tail = Zip<typename TS::Tail, typename OnlyOfOthers::Tail>;
+  using Head [[maybe_unused]] = Cons<typename TS::Head,
+                                     typename ZippedOthers::Head>;
+  using Tail [[maybe_unused]] = Zip<typename TS::Tail,
+                                    typename OnlyOfOthers::Tail>;
 };
 
 template <TypeSequence TS, TypeList... TLs>
@@ -486,20 +445,21 @@ struct Zip<TS, TLs...> : ZipImpl<TS, Zip<TLs...>, TLs...>{};
 
 template <TypeSequence TS>
 struct Zip<TS>{
-  using Head = TypeListStruct<typename TS::Head, Nil>;
-  using Tail = Zip<typename TS::Tail>;
+  using Head [[maybe_unused]] = Cons<typename TS::Head, Nil>;
+  using Tail [[maybe_unused]] = Zip<typename TS::Tail>;
 };
 
 /*
  * GroupBy
  */
 
+/*
 template <template<class Arg1, class Arg2> class Eq, TypeList Accumulated, TypeList InitialGroups, TypeList Tail_>
 struct GroupByImpl;
 
 template <template<class Arg1, class Arg2> class Eq, TypeList Accumulated, TypeList InitialGroups, Empty EmptyTail>
 struct GroupByImpl<Eq, Accumulated, InitialGroups, EmptyTail> {
-  using Ret = TypeListStruct<Accumulated, Nil>;
+  using Ret = Cons<Accumulated, Nil>;
 };
 
 template <template<class Arg1, class Arg2> class Eq, Empty Accumulated, TypeList InitialGroups, TypeSequence Tail>
@@ -514,7 +474,7 @@ struct GroupByImpl<Eq, Accumulated, InitialGroups, TS> {
 
   template <TypeList Groups>
   struct Step<Groups, true>{
-    using Accumulated_ = TypeListStruct<typename TS::Head, Accumulated>;
+    using Accumulated_ = Cons<typename TS::Head, Accumulated>;
     using Groups_ = Groups;
   };
 
@@ -533,6 +493,61 @@ struct GroupByImpl<Eq, Accumulated, InitialGroups, TS> {
 
 template <template<class Arg1, class Arg2> class Eq, TypeList TL>
 using GroupBy = typename GroupByImpl<Eq, Nil, Nil, TL>::Ret;
+*/
+
+template <template<class Arg1, class Arg2> class Eq, TypeList TL>
+struct GroupBy : public Nil{};
+
+template <template<class, class> class Eq, TypeSequence TS>
+struct GroupBy<Eq, TS>{
+ private:
+  using GroupedTail = GroupBy<Eq, typename TS::Tail>;
+
+  template<TypeList GroupedTail_>
+  struct HeadDecision {
+    template <bool DoesNotMatter>
+    constexpr static Cons<typename TS::Head, Nil>
+    getNewHead(std::bool_constant<DoesNotMatter>) {
+        return {};
+    }
+    template <bool doesNotMatter>
+    constexpr static Nil
+    getNewTail(std::bool_constant<doesNotMatter>) {
+        return {};
+    }
+
+    using Head = decltype(getNewHead(std::declval<std::bool_constant<true>>()));
+    using Tail = decltype(getNewTail(std::declval<std::bool_constant<true>>()));
+  };
+
+  template <TypeSequence GroupedTail_>
+  struct HeadDecision<GroupedTail_>{
+    constexpr static Cons<typename TS::Head, typename GroupedTail_::Head>
+    getNewHead(std::bool_constant<true>) {
+        return {};
+    }
+    constexpr static Cons<typename TS::Head, Nil>
+    getNewHead(std::bool_constant<false>) {
+        return {};
+    }
+    constexpr static typename GroupedTail_::Tail
+    getNewTail(std::bool_constant<true>) {
+        return {};
+    }
+    constexpr static GroupedTail_
+    getNewTail(std::bool_constant<false>) {
+        return {};
+    }
+    //const static bool take = Eq<typename TS::Head, typename GroupedTail_::Head::Head>::Value;
+
+    using Head = decltype(getNewHead(std::declval<std::bool_constant<Eq<typename TS::Head, typename GroupedTail_::Head::Head>::Value>>()));
+    using Tail = decltype(getNewTail(std::declval<std::bool_constant<Eq<typename TS::Head, typename GroupedTail_::Head::Head>::Value>>()));
+  };
+
+ public:
+  using Head = typename HeadDecision<GroupedTail>::Head;
+  using Tail = typename HeadDecision<GroupedTail>::Tail;
+};
 
 } // namespace TypeLists
 
