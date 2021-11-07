@@ -41,6 +41,12 @@ struct TypeListStruct {
   using Tail [[maybe_unused]] = TL;
 };
 
+template <typename T>
+struct TypeListFromSingle{
+  using Head = T;
+  using Tail = Nil;
+};
+
 /*
  * struct TTuple
  */
@@ -57,6 +63,19 @@ class ConcatHelper {
       return {};
   }
 };
+
+
+template <TypeList TL1, TypeList TL2>
+struct Concat;
+
+template <TypeSequence TS, TypeList TL>
+struct Concat<TS, TL> {
+  using Head = typename TS::Head;
+  using Tail = Concat<typename TS::Tail, TL>;
+};
+
+template <Empty TE, TypeList TL>
+struct Concat<TE, TL> : public TL {};
 
 /*
  * struct ConvertToTTupleImpl
@@ -152,8 +171,8 @@ struct ConvertToTypeList {
 
  public:
 
-  using Head = decltype(getHeadImpl(std::declval<TTupleInput>()));
-  using Tail = decltype(getTailImpl(std::declval<TTupleInput>()));
+  using Head [[maybe_unused]] = decltype(getHeadImpl(std::declval<TTupleInput>()));
+  using Tail [[maybe_unused]] = decltype(getTailImpl(std::declval<TTupleInput>()));
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -171,7 +190,6 @@ struct Repeat {
   using Head = T;
   using Tail = Repeat<T>;
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Take - взять первые N элементов из TypeList TL
@@ -220,23 +238,18 @@ struct Replicate<1, T>{
 
 ////////////////////////////////////////////////////////////////////////////////
 // Map список из результатов применения F к элементам TL
-template <template<typename T> class F, TypeList TS>
-struct Map {
- private:
-  template <TypeSequence Tail>
-  static Map<F, Tail> MappedTail(Tail) {
-      return {};
-  }
+template <template<typename T> class F, TypeList TL>
+struct Map;
 
-  template <Empty Tail>
-  static Nil mappedTail(Tail) {
-      return {};
-  }
 
- public:
+template <template<typename T> class F, TypeSequence TS>
+struct Map<F, TS> {
   using Head = F<typename TS::Head>;
-  using Tail = decltype(MappedTail(std::declval<TS>()));
+  using Tail = Map<F, typename TS::Tail>;
 };
+
+template <template<typename T> class F, Empty TE>
+struct Map<F, TE> : public Nil {};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Filter
@@ -369,7 +382,7 @@ struct Inits<TS> {
  * Tails
  */
 template <TypeList TL>
-struct Tails;
+struct Tails : public Nil {};
 
 template <TypeSequence TS>
 struct Tails<TS> {
@@ -377,23 +390,17 @@ struct Tails<TS> {
   using Tail = Tails<typename TS::Tail>;
 };
 
-template <Empty TE>
-struct Tails<TE> : public Nil {};
-
 /*
  * Scanl
  */
 template <template <class Arg1, class Arg2> class OP, typename T, TypeList TL>
-struct Scanl;
+struct Scanl : public Nil {};
 
 template <template <class Arg1, class Arg2> class OP, typename T, TypeSequence TS>
 struct Scanl<OP, T, TS> {
   using Head = OP<T, typename TS::Head>;
-  using Tail = Scanl<OP, typename TS::Head, typename TS::Tail>;
+  using Tail = Scanl<OP, Head, typename TS::Tail>;
 };
-
-template <template <class Arg1, class Arg2> class OP, typename T, Empty TE>
-struct Scanl<OP, T, TE> : public Nil {};
 
 /*
  * Foldl
@@ -404,7 +411,7 @@ struct FoldlImpl;
 
 template <template<class Arg1, class Arg2> class OP, typename T, TypeSequence TS>
 struct FoldlImpl<OP, T, TS> {
-  using Ret = FoldlImpl<OP, OP<T, typename TS::Head>, typename TS::Tail>;
+  using Ret = typename FoldlImpl<OP, OP<T, typename TS::Head>, typename TS::Tail>::Ret;
 };
 
 template <template<class Arg1, class Arg2> class OP, typename T, Empty TE>
@@ -428,38 +435,104 @@ struct Zip2<TS1, TS2> {
   using Tail = Zip2<typename TS1::Tail, typename TS2::Tail>;
 };
 
-template <TypeSequence TS, Empty TE>
-struct Zip2<TS, TE> : public Nil {};
-
 template <Empty TE, TypeSequence TS>
 struct Zip2<TE, TS> : public Nil {};
+
+template <Empty TE, TypeSequence TS>
+struct Zip2<TS, TE> : public Nil {};
+
+template <Empty TE1, Empty TE2>
+struct Zip2<TE1, TE2> : public Nil {};
 
 /*
  * Zip
  */
 
 template <TypeList... TLs>
-struct ZipImpl;
+struct Zip : Nil {};
+
+template <TypeSequence TS, TypeList ZippedOthers, TypeList... Others>
+struct ZipImpl : Nil {};
+
+template <TypeSequence TS, TypeSequence ZippedOthers, TypeList FirstOfOthers, TypeList... Others>
+struct ZipImpl<TS, ZippedOthers, FirstOfOthers, Others...> {
+  using ZippedOthers_ = ZipImpl<FirstOfOthers, Zip<Others...>, Others...>;
+
+  using Head = Cons<typename TS::Head,
+                    typename ZippedOthers_::Head>;
+  using Tail = Zip<typename TS::Tail,
+                   typename FirstOfOthers::Tail,
+                   typename Others::Tail...>;
+};
+
+template <TypeSequence TS, TypeSequence ZippedOthers, TypeList FirstOfOthers, TypeList SecondOfOthers>
+struct ZipImpl<TS, ZippedOthers, FirstOfOthers, SecondOfOthers> {
+  using ZippedOthers_ = ZipImpl<FirstOfOthers, Zip<SecondOfOthers>, SecondOfOthers>;
+
+  using Head = Cons<typename TS::Head, typename ZippedOthers_::Head>;
+  using Tail = Zip<typename TS::Tail,
+                   typename FirstOfOthers::Tail,
+                   typename SecondOfOthers::Tail>;
+};
+
+template <TypeSequence TS, TypeSequence ZippedOthers, TypeSequence OnlyOfOthers>
+struct ZipImpl<TS, ZippedOthers, OnlyOfOthers> {
+  using Head = Cons<typename TS::Head, typename ZippedOthers::Head>;
+  using Tail = Zip<typename TS::Tail, typename OnlyOfOthers::Tail>;
+};
 
 template <TypeSequence TS, TypeList... TLs>
-struct ZipImpl<TS, TLs...>{
-  using Ret = Zip2<TS, typename ZipImpl<TLs...>::Ret>;
-};
+struct Zip<TS, TLs...> : ZipImpl<TS, Zip<TLs...>, TLs...>{};
 
 template <TypeSequence TS>
-struct ZipImpl<TS>{
-  using Ret = TS;
+struct Zip<TS>{
+  using Head = TypeListStruct<typename TS::Head, Nil>;
+  using Tail = Zip<typename TS::Tail>;
 };
-
-template <TypeList... TLs>
-using Zip = ZipImpl<TLs...>;
 
 /*
  * GroupBy
  */
 
+template <template<class Arg1, class Arg2> class Eq, TypeList Accumulated, TypeList InitialGroups, TypeList Tail_>
+struct GroupByImpl;
 
+template <template<class Arg1, class Arg2> class Eq, TypeList Accumulated, TypeList InitialGroups, Empty EmptyTail>
+struct GroupByImpl<Eq, Accumulated, InitialGroups, EmptyTail> {
+  using Ret = TypeListStruct<Accumulated, Nil>;
+};
 
+template <template<class Arg1, class Arg2> class Eq, Empty Accumulated, TypeList InitialGroups, TypeSequence Tail>
+struct GroupByImpl<Eq, Accumulated, InitialGroups, Tail> {
+  using Ret = typename GroupByImpl<Eq, Cons<typename Tail::Head, Nil>, InitialGroups, typename Tail::Tail>::Ret;
+};
+
+template <template<class Arg1, class Arg2> class Eq, TypeList Accumulated, TypeList InitialGroups, TypeSequence TS>
+struct GroupByImpl<Eq, Accumulated, InitialGroups, TS> {
+  template <TypeList Groups, bool continueAccumulate>
+  struct Step;
+
+  template <TypeList Groups>
+  struct Step<Groups, true>{
+    using Accumulated_ = TypeListStruct<typename TS::Head, Accumulated>;
+    using Groups_ = Groups;
+  };
+
+  template <TypeList Groups>
+  struct Step<Groups, false>{
+    using Accumulated_ = Cons<typename TS::Head, Nil>;
+    using Groups_ = Cons<Accumulated, Groups>;
+  };
+
+  using NewStep = Step<InitialGroups, Eq<typename Accumulated::Head, typename TS::Head>::Value>;
+  using NewGroups = typename NewStep::Groups_;
+  using NewAccumulated = typename NewStep::Accumulated_;
+
+  using Ret = Concat<InitialGroups, typename GroupByImpl<Eq, NewAccumulated, NewGroups, typename TS::Tail>::Ret>;
+};
+
+template <template<class Arg1, class Arg2> class Eq, TypeList TL>
+using GroupBy = typename GroupByImpl<Eq, Nil, Nil, TL>::Ret;
 
 } // namespace TypeLists
 
