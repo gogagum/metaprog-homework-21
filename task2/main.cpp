@@ -13,6 +13,7 @@ struct IsSame {
   const static bool Value = std::is_same_v<T1, T2>;
 };
 
+
 int main() {
 
     // Проверки того, что TypeLists::TypeListStruct соответствует концепту
@@ -118,6 +119,30 @@ int main() {
     static_assert(std::is_same_v<Taken::Tail::Head, int>);
 
     ////////////////////////////////////////////////////////////////////////////
+    // Get                                                                    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    using SingleTTuple = TypeLists::TTuple<int>;
+
+    static_assert(std::is_same_v<int, TypeLists::Get<0, SingleTTuple>>);
+
+    static_assert(std::is_same_v<int, TypeLists::Get<0, SimpleTestTTuple>>);
+    static_assert(std::is_same_v<float, TypeLists::Get<1, SimpleTestTTuple>>);
+    static_assert(std::is_same_v<double, TypeLists::Get<2, SimpleTestTTuple>>);
+
+    //static_assert(std::is_same_v<int, TypeLists::Get<0, SimpleTestCycleTypeList>>;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // concept RequireLengthGreaterOrEqual                                    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    //static_assert(TypeLists::LengthGreaterOrEqual<SimpleTestCycleTypeList, 0>);
+
+    static_assert(TypeLists::LengthGreaterOrEqual<SimpleTestTypeList, 2>);
+    static_assert(TypeLists::LengthGreaterOrEqual<SimpleTestTypeList, 3>);
+    static_assert(!TypeLists::LengthGreaterOrEqual<SimpleTestTypeList, 4>);
+
+    ////////////////////////////////////////////////////////////////////////////
     // Drop                                                                   //
     ////////////////////////////////////////////////////////////////////////////
     using DropTestTuple = TypeLists::TTuple<int, float, double, long long>;
@@ -167,9 +192,10 @@ int main() {
     static_assert(std::is_same_v<FilteredListToTuple2,
                                  TypeLists::TTuple<char, int>>);
 
-    using InfFilterResult = TypeLists::Filter<IsIntegral, SimpleTestCycleTypeList>;
 
-    //InfFilterResult::Head
+    //using InfFilterResult = TypeLists::Filter<IsIntegral, SimpleTestCycleTypeList>;
+
+    //static_assert(std::is_same_v<InfFilterResult::Head, int>);
 
 
     ////////////////////////////////////////////////////////////////////////////
