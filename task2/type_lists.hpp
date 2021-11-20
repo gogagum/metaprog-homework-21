@@ -322,62 +322,90 @@ template <template<typename T> class F, TypeList TL>
 struct Map;
 
 template <template<typename T> class F, TypeSequence TS>
-struct Map<F, TS> : Cons<F<typename TS::Head>, Map<F, typename TS::Tail>> {};
+struct Map<F, TS> {
+    using Head = F<typename TS::Head>;
+    using Tail = Map<F, typename TS::Tail>;
+};
 
 template <template<typename T> class F, Empty TE>
 struct Map<F, TE> : public Nil {};
+
+////////////////////////////////////////////////////////////////////////////////
+// ApplyLogicNotToValue
+template <typename T>
+struct ApplyLogicNotToValue {
+    const static bool Value = !T::Value;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// SkipWhile
+template <template <typename> class P, TypeList TL>
+struct SkipWhileImpl;
+
+template <template <typename> class P, TypeSequence TS>
+struct SkipWhileImpl<P, TS> {
+private:
+    template <bool Skip, typename _>
+    struct Decision;
+
+    template <typename _>
+    struct Decision<true, _> {
+        using Ret = TS;
+    };
+
+    template <typename _>
+    struct Decision<false, _> {
+        using Ret = typename SkipWhileImpl<P, typename TS::Tail>::Ret;
+    };
+
+public:
+    using Ret = typename Decision<!P<typename TS::Head>::Value, TS>::Ret;
+};
+
+template <template <typename> class P, Empty TE>
+struct SkipWhileImpl<P, TE> {
+    using Ret = Nil;
+};
+
+template <template <typename> class P, TypeList TL>
+using SkipWhile = typename SkipWhileImpl<P, TL>::Ret;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Filter
 template <template <typename Arg> class P, TypeList TL>
 struct FilterImpl;
 
-template <template <typename Arg> class P, TypeSequence TS>
+template <template <typename> class P, TypeSequence TS>
 struct FilterImpl<P, TS> {
- private:
-  using Head = typename TS::Head;
-  using Tail = typename TS::Tail;
+private:
+    template <typename T>
+    using NotP = ApplyLogicNotToValue<P<T>>;
 
-  template <TypeList FilteredTail_>
-  struct Decisions{
-    static Cons<Head, FilteredTail_> retDecision(std::bool_constant<true>) {
-        return {};
-    }
-    static FilteredTail_ retDecision(std::bool_constant<false>) {
-        return {};
-    }
-  };
+    using Skipped = SkipWhile<NotP, TS>;
 
-  using FilteredTail = typename FilterImpl<P, Tail>::Ret;
-  using TakeHeadT = std::bool_constant<P<Head>::Value>;
+    template <TypeList TL>
+    struct AfterSkip;
 
- public:
-  using Ret = decltype(Decisions<FilteredTail>::retDecision(std::declval<TakeHeadT>()));
+    template <TypeSequence TS_>
+    struct AfterSkip<TS_> {
+        using Head = typename TS_::Head;
+        using Tail = typename FilterImpl<P, typename TS_::Tail>::Ret;
+    };
+
+    template <Empty TE>
+    struct AfterSkip<TE> : Nil {};
+public:
+    using Ret = AfterSkip<Skipped>;
 };
 
-template <template <typename Arg> class P, TypeListOfLength<1> TS>
-struct FilterImpl<P, TS>
-{
- private:
-  using Head = typename TS::Head;
-
-  struct Decisions{
-    static TS retDecision(std::bool_constant<true>) {
-        return {};
-    }
-    static Nil retDecision(std::bool_constant<false>) {
-        return {};
-    }
-  };
-
-  using TakeHeadT = std::bool_constant<P<Head>::Value>;
-
- public:
-  using Ret = decltype(Decisions::retDecision(std::declval<TakeHeadT>()));
+template <template <typename> class P, Empty TE>
+struct FilterImpl<P, TE>{
+    using Ret = Nil;
 };
 
-template <template <typename Arg> class P, TypeList TL>
+template <template <typename> class P, TypeList TL>
 using Filter = typename FilterImpl<P, TL>::Ret;
+
 
 /*
  * Iterate
