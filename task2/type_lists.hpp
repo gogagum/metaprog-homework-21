@@ -13,10 +13,10 @@ namespace TypeLists {
 // TypeSequence - концепт из условия.
 template<class TL>
 concept TypeSequence =
-requires {
-    typename TL::Head;
-    typename TL::Tail;
-};
+    requires {
+        typename TL::Head;
+        typename TL::Tail;
+    };
 
 /*
  * Nil конец TypeList`а
@@ -34,77 +34,109 @@ template<class TL>
 concept TypeList = Empty<TL> || TypeSequence<TL>;
 
 /*
- * struct TypeListStruct - реализация шаблона - потенциально бесконечного
- * списка типов
- */
-template <class T,  TypeList TL>
-struct TypeListStruct {
-  using Head [[maybe_unused]] = T;
-  using Tail [[maybe_unused]] = TL;
-};
-
-/*
  * struct TTuple
  */
 template<class... Ts>
 struct TTuple {};
 
 /*
- * Get<N, TTuple>
+ * GetFromTTuple<N, TTuple>
  */
-template <std::size_t N, typename... TT>
-struct GetImpl;
+template <std::size_t N, typename... Types>
+struct GetFromTTupleImpl;
 
-template <std::size_t N, typename FirstType, typename... TTupleTypes>
-struct GetImpl<N, TTuple<FirstType, TTupleTypes...>> {
- using Ret = typename GetImpl<N - 1, TTuple<TTupleTypes...>>::Ret;
+template <std::size_t N, typename FirstType, typename... OtherTypes>
+struct GetFromTTupleImpl<N, TTuple<FirstType, OtherTypes...>> {
+ using Ret[[maybe_unused]] = typename GetFromTTupleImpl<N - 1, TTuple<OtherTypes...>>::Ret;
 };
 
-template <typename FirstType, typename... TTupleTypes>
-struct GetImpl<0, TTuple<FirstType, TTupleTypes...>> {
- using Ret = FirstType;
+template <typename FirstType, typename... OtherTypes>
+struct GetFromTTupleImpl<0, TTuple<FirstType, OtherTypes...>> {
+ using Ret[[maybe_unused]] = FirstType;
 };
 
 template <typename OnlyType>
-struct GetImpl<0, TTuple<OnlyType>> {
-  using Ret = OnlyType;
+struct GetFromTTupleImpl<0, TTuple<OnlyType>> {
+  using Ret[[maybe_unused]] = OnlyType;
 };
 
 template <std::size_t N, typename TT>
-using Get = typename GetImpl<N, TT>::Ret;
+using GetFromTTuple = typename GetFromTTupleImpl<N, TT>::Ret;
 
 /*
- * GetWithErrorReturn
+ * GetFromTTupleWithErrorReturn<N, TTuple>
  */
-
 struct ErrorReturn {};
 
-template <std::size_t N, typename... TT>
-struct GetWithErrorReturnImpl;
+template <std::size_t N, typename... Types>
+struct GetFromTTupleWithErrorReturnImpl;
 
-
-template <std::size_t N, typename FirstType, typename... TTupleTypes>
-struct GetWithErrorReturnImpl<N, TTuple<FirstType, TTupleTypes...>> {
-  using Ret = typename GetWithErrorReturnImpl<N - 1, TTuple<TTupleTypes...>>::Ret;
+template <std::size_t N, typename FirstType, typename... OtherTypes>
+struct GetFromTTupleWithErrorReturnImpl<N, TTuple<FirstType, OtherTypes...>> {
+  using Ret[[maybe_unused]] = typename GetFromTTupleWithErrorReturnImpl<N - 1, TTuple<OtherTypes...>>::Ret;
 };
 
 template <typename FirstType, typename... TTupleTypes>
-struct GetWithErrorReturnImpl<0, TTuple<FirstType, TTupleTypes...>> {
-  using Ret = FirstType;
-};
-
-template <typename OnlyType>
-struct GetWithErrorReturnImpl<0, TTuple<OnlyType>> {
-  using Ret = OnlyType;
+struct GetFromTTupleWithErrorReturnImpl<0, TTuple<FirstType, TTupleTypes...>> {
+  using Ret[[maybe_unused]] = FirstType;
 };
 
 template <std::size_t N, typename OnlyType>
-struct GetWithErrorReturnImpl<N, TTuple<OnlyType>> {
-  using Ret = ErrorReturn;
+struct GetFromTTupleWithErrorReturnImpl<N, TTuple<OnlyType>> {
+  using Ret[[maybe_unused]] = ErrorReturn;
+};
+
+template <typename OnlyType>
+struct GetFromTTupleWithErrorReturnImpl<0, TTuple<OnlyType>> {
+  using Ret[[maybe_unused]] = OnlyType;
 };
 
 template <std::size_t N, typename TT>
-using GetWithErrorReturn = typename GetWithErrorReturnImpl<N, TT>::Ret;
+using GetFromTTupleWithErrorReturn = typename GetFromTTupleWithErrorReturnImpl<N, TT>::Ret;
+
+/*
+ * GetFromTypeList<N, TypeList>
+ */
+template <std::size_t N, TypeList TL>
+struct GetFromTypeListImpl;
+
+template <std::size_t N, TypeSequence TS>
+struct GetFromTypeListImpl<N, TS> {
+  using Ret[[maybe_unused]] = typename GetFromTypeListImpl<N - 1, typename TS::Tail>::Ret;
+};
+
+template <TypeSequence TS>
+struct GetFromTypeListImpl<0, TS> {
+  using Ret[[maybe_unused]] = typename TS::Head;
+};
+
+template <size_t N, TypeList TL>
+using GetFromTypeList = typename GetFromTypeListImpl<N, TL>::Ret;
+
+/*
+ * GetFromTypeListWithErrorReturn
+ */
+
+template <std::size_t N, TypeList TL>
+struct GetFromTypeListWithErrorReturnImpl;
+
+template <std::size_t N, TypeSequence TS>
+struct GetFromTypeListWithErrorReturnImpl<N, TS> {
+  using Ret[[maybe_unused]] = typename GetFromTypeListWithErrorReturnImpl<N - 1, typename TS::Tail>::Ret;
+};
+
+template <TypeSequence TS>
+struct GetFromTypeListWithErrorReturnImpl<0, TS> {
+  using Ret[[maybe_unused]] = typename TS::Head;
+};
+
+template <std::size_t N, Empty TE>
+struct GetFromTypeListWithErrorReturnImpl<N, TE> {
+  using Ret[[maybe_unused]] = ErrorReturn;
+};
+
+template <size_t N, TypeList TL>
+using GetFromTypeListWithErrorReturn = typename GetFromTypeListWithErrorReturnImpl<N, TL>::Ret;
 
 /*
  * Concat
@@ -118,8 +150,25 @@ struct Concat<TS, TL> {
   using Tail = Concat<typename TS::Tail, TL>;
 };
 
-template <Empty TE, TypeList TL>
-struct Concat<TE, TL> : public TL {};
+template <Empty TE, TypeSequence TS>
+struct Concat<TE, TS> : public TS {};
+
+template <Empty TE1, Empty TE2>
+struct Concat<TE1, TE2> : Nil {};
+
+/*
+ * TTupleCons
+ */
+template <typename Added, class TypeTuple>
+struct TTupleConsImpl;
+
+template <typename Added, typename... TTupleTypes>
+struct TTupleConsImpl<Added, TTuple<TTupleTypes...>> {
+  using Ret[[maybe_unused]] = TTuple<Added, TTupleTypes...>;
+};
+
+template <typename Added, typename TypeTuple>
+using TTupleCons = typename TTupleConsImpl<Added, TypeTuple>::Ret;
 
 /*
  * struct ConvertToTTupleImpl
@@ -127,44 +176,24 @@ struct Concat<TE, TL> : public TL {};
  * Возвращаемое значение в ConvertedTailImpl<TL>::Converted
  */
 template <TypeList TL>
-struct ConvertToTTupleImpl;
-
-template <Empty TE>
-struct ConvertToTTupleImpl<TE>{
-  using Converted = TTuple<>;
-};
+struct ConvertToTypeTupleImpl;
 
 template <TypeSequence TS>
-struct ConvertToTTupleImpl<TS>{
+struct ConvertToTypeTupleImpl<TS> {
  private:
-  using ConvertedTail = typename ConvertToTTupleImpl<typename TS::Tail>::Converted;
-  /*
-   * Вспомогательная функция преобразования из TypeList в TTuple.
-   */
-  template<class... TailClasses>
-  static TTuple<typename TS::Head, TailClasses...>
-  convertImpl(TTuple<TailClasses...>)  {
-      return {};
-  }
-
-  static TTuple<typename TS::Head>
-  convertImpl(TTuple<>) {
-      return {};
-  }
-
+  using OtherParams = typename ConvertToTypeTupleImpl<typename TS::Tail>::Ret;
+  using FirstParam = typename TS::Head;
  public:
-  /*
-   * Преобразование к TTuple
-   */
-  using Converted [[maybe_unused]] =
-      decltype(convertImpl(std::declval<ConvertedTail>()));
+  using Ret[[maybe_unused]] = TTupleCons<FirstParam , OtherParams>;
 };
 
-/*
- * ConvertToTTuple - метафункция преобразования TypeList к TTuple.
- */
+template <Empty TE>
+struct ConvertToTypeTupleImpl<TE> {
+  using Ret[[maybe_unused]] = TTuple<>;
+};
+
 template <TypeList TL>
-using ConvertToTTuple = typename ConvertToTTupleImpl<TL>::Converted;
+using ConvertToTTuple = typename ConvertToTypeTupleImpl<TL>::Ret;
 
 /*
  * ConvertToTypeList
@@ -177,7 +206,7 @@ struct ConvertToTypeList {
    * ConvertToTypeListImpl - вспомогательная метафункция от списка типов.
    */
   template <typename TakenType, typename... Other>
-  struct ConvertToTypeListImpl{
+  struct ConvertToTypeListImpl {
     using Head = TakenType;
     using Tail = ConvertToTypeListImpl<Other...>;
   };
@@ -186,7 +215,7 @@ struct ConvertToTypeList {
    * ConvertToTypeListImpl - случай последнего элемента в списке типов
    */
   template <typename Last>
-  struct ConvertToTypeListImpl<Last>{
+  struct ConvertToTypeListImpl<Last> {
     using Head = Last;
     using Tail = Nil;
   };
@@ -254,9 +283,13 @@ struct Take<0, TE> : Nil {};
  * concept LengthGreaterOrEqual
  */
 template <typename TL, std::size_t len>
-concept LengthGreaterOrEqual = !std::is_same_v<GetWithErrorReturn<len - 1, ConvertToTTuple<TL>>, ErrorReturn>;
+concept LengthGreaterOrEqual = TypeList<TL> && !std::is_same_v<GetFromTypeListWithErrorReturn<len - 1, TL>, ErrorReturn>;
 
-
+/*
+ * concept TypeListOfLength
+ */
+template <typename TL, std::size_t len>
+concept TypeListOfLength = TypeList<TL> && LengthGreaterOrEqual<TL, len> && !LengthGreaterOrEqual<TL, len + 1>;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Drop - взять всё, кроме первых N элементов из TL
@@ -296,18 +329,40 @@ struct Map<F, TE> : public Nil {};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Filter
-
-template <template <typename Arg> class P, class HeadCandidate, TypeList TLTail>
+template <template <typename Arg> class P, TypeList TL>
 struct FilterImpl;
 
-struct DontUseAnywhere{};
+template <template <typename Arg> class P, TypeSequence TS>
+struct FilterImpl<P, TS> {
+ private:
+  using Head = typename TS::Head;
+  using Tail = typename TS::Tail;
 
-template <template <typename Arg> class P, class HeadCandidate, Empty TLTail>
-struct FilterImpl<P, HeadCandidate, TLTail>
+  template <TypeList FilteredTail_>
+  struct Decisions{
+    static Cons<Head, FilteredTail_> retDecision(std::bool_constant<true>) {
+        return {};
+    }
+    static FilteredTail_ retDecision(std::bool_constant<false>) {
+        return {};
+    }
+  };
+
+  using FilteredTail = typename FilterImpl<P, Tail>::Ret;
+  using TakeHeadT = std::bool_constant<P<Head>::Value>;
+
+ public:
+  using Ret = decltype(Decisions<FilteredTail>::retDecision(std::declval<TakeHeadT>()));
+};
+
+template <template <typename Arg> class P, TypeListOfLength<1> TS>
+struct FilterImpl<P, TS>
 {
  private:
+  using Head = typename TS::Head;
+
   struct Decisions{
-    static Cons<HeadCandidate, Nil> retDecision(std::bool_constant<true>) {
+    static TS retDecision(std::bool_constant<true>) {
         return {};
     }
     static Nil retDecision(std::bool_constant<false>) {
@@ -315,33 +370,14 @@ struct FilterImpl<P, HeadCandidate, TLTail>
     }
   };
 
-  using TakeHeadT = std::bool_constant<P<HeadCandidate>::Value  && !std::is_same_v<HeadCandidate, DontUseAnywhere>>;
+  using TakeHeadT = std::bool_constant<P<Head>::Value>;
 
  public:
   using Ret = decltype(Decisions::retDecision(std::declval<TakeHeadT>()));
 };
 
-template <template <typename Arg> class P, class HeadCandidate, TypeSequence TLTail>
-struct FilterImpl<P, HeadCandidate, TLTail> {
- private:
-    template <TypeList FilteredTail>
-    struct Decisions{
-      static Cons<HeadCandidate, FilteredTail> retDecision(std::bool_constant<true>) {
-          return {};
-      }
-      static FilteredTail retDecision(std::bool_constant<false>) {
-          return {};
-      }
-    };
-
-    using TakeHeadT = std::bool_constant<P<HeadCandidate>::Value && !std::is_same_v<HeadCandidate, DontUseAnywhere>>;
-    using FilteredTail = typename FilterImpl<P, typename TLTail::Head, typename TLTail::Tail>::Ret;
- public:
-    using Ret = decltype(Decisions<FilteredTail>::retDecision(std::declval<TakeHeadT>()));
-};
-
 template <template <typename Arg> class P, TypeList TL>
-using Filter = typename FilterImpl<P, DontUseAnywhere, TL>::Ret;
+using Filter = typename FilterImpl<P, TL>::Ret;
 
 /*
  * Iterate
@@ -590,23 +626,22 @@ struct GroupBy<Eq, TS>{
 
   template <TypeSequence GroupedTail_>
   struct HeadDecision<GroupedTail_>{
-    constexpr static Cons<typename TS::Head, typename GroupedTail_::Head>
+    [[maybe_unused]] constexpr static Cons<typename TS::Head, typename GroupedTail_::Head>
     getNewHead(std::bool_constant<true>) {
         return {};
     }
-    constexpr static Cons<typename TS::Head, Nil>
+    [[maybe_unused]] constexpr static Cons<typename TS::Head, Nil>
     getNewHead(std::bool_constant<false>) {
         return {};
     }
-    constexpr static typename GroupedTail_::Tail
+    [[maybe_unused]] constexpr static typename GroupedTail_::Tail
     getNewTail(std::bool_constant<true>) {
         return {};
     }
-    constexpr static GroupedTail_
+    [[maybe_unused]] constexpr static GroupedTail_
     getNewTail(std::bool_constant<false>) {
         return {};
     }
-    //const static bool take = Eq<typename TS::Head, typename GroupedTail_::Head::Head>::Value;
 
     using Head = decltype(getNewHead(std::declval<std::bool_constant<Eq<typename TS::Head, typename GroupedTail_::Head::Head>::Value>>()));
     using Tail = decltype(getNewTail(std::declval<std::bool_constant<Eq<typename TS::Head, typename GroupedTail_::Head::Head>::Value>>()));

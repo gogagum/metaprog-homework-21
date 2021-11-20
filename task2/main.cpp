@@ -17,42 +17,47 @@ struct IsSame {
 int main() {
 
     // Проверки того, что TypeLists::TypeListStruct соответствует концепту
-    static_assert(TypeLists::TypeSequence<TypeLists::TypeListStruct<float, TypeLists::Nil>>);
+    static_assert(TypeLists::TypeSequence<TypeLists::Cons<float, TypeLists::Nil>>);
 
+    // int, float, double
     using SimpleTestTTuple = TypeLists::TTuple<int, float, double>;
-    using SimpleTestTypeList = TypeLists::ConvertToTypeList<SimpleTestTTuple>;
+
+    // int, float, double
+    using SimpleTestTypeList =
+        TypeLists::Cons<
+            int,
+            TypeLists::Cons<
+                float,
+                TypeLists::Cons<
+                    double,
+                    TypeLists::Nil
+                >
+            >
+        >;
+
+    // int, float, double, int, float, double ...
     using SimpleTestCycleTypeList = TypeLists::Cycle<SimpleTestTypeList>;
 
     ////////////////////////////////////////////////////////////////////////////
     // Convertions                                                            //
     ////////////////////////////////////////////////////////////////////////////
-    using TestTypeList =
-        typename TypeLists::TypeListStruct<
-                     float,
-                     TypeLists::TypeListStruct<
-                         int,
-                         TypeLists::TypeListStruct<
-                             bool,
-                             TypeLists::Nil
-                         >
-                     >
-                 >;
-    using TestTypeTuple =
-        TypeLists::TTuple<float, int, bool>;
 
-    using TTupleConvertedFromList =
-        TypeLists::ConvertToTTuple<TestTypeList>;
+    // Convert TTuple<int, float, double> to TypeList
+    using TTupleConvertedFromSimpleTestTypeList =
+        TypeLists::ConvertToTTuple<SimpleTestTypeList>;
 
-    static_assert(std::is_same_v<TTupleConvertedFromList, TestTypeTuple>);
+    static_assert(std::is_same_v<TTupleConvertedFromSimpleTestTypeList,
+                                 SimpleTestTTuple>);
 
     // Пока что для тестирования будем конвертировать TTuple туда и обратно.
     using TypeListConvertedFromTuple =
-        TypeLists::ConvertToTypeList<TestTypeTuple>;
+        TypeLists::ConvertToTypeList<SimpleTestTTuple>;
 
     using TypeTupleConvertedFromConverted =
         TypeLists::ConvertToTTuple<TypeListConvertedFromTuple>;
 
-    static_assert(std::is_same_v<TypeTupleConvertedFromConverted, TestTypeTuple>);
+    static_assert(std::is_same_v<TypeTupleConvertedFromConverted,
+                                 SimpleTestTTuple>);
 
     ////////////////////////////////////////////////////////////////////////////
     // Concat                                                                 //
@@ -63,6 +68,11 @@ int main() {
     static_assert(std::is_same_v<typename ConcatResult::Head, int>);
     static_assert(std::is_same_v<typename ConcatResult::Tail::Head, float>);
 
+    static_assert(std::is_same_v<int, TypeLists::GetFromTypeList<3, ConcatResult>>);
+
+    static_assert(TypeLists::LengthGreaterOrEqual<ConcatResult , 6>);
+    static_assert(!TypeLists::LengthGreaterOrEqual<ConcatResult , 7>);
+
     static_assert(std::is_same_v<ConcatResultTTuple,
                                  TypeLists::TTuple<int, float, double, int, float, double>>);
 
@@ -71,7 +81,6 @@ int main() {
     ////////////////////////////////////////////////////////////////////////////
     using ConsResult = TypeLists::Cons<bool, SimpleTestTypeList>;
     using ConsResultTTuple = TypeLists::ConvertToTTuple<ConsResult>;
-
 
     static_assert(
         std::is_same_v<
@@ -105,12 +114,18 @@ int main() {
     static_assert(std::is_same_v<RepeatTestTypeList,
                                  typename RepeatTestTypeList::Tail>);
 
+    static_assert(TypeLists::LengthGreaterOrEqual<RepeatTestTypeList, 104>);
+    static_assert(std::is_same_v<TypeLists::GetFromTypeList<99, RepeatTestTypeList>, float>);
+
     ////////////////////////////////////////////////////////////////////////////
     // Take                                                                   //
     ////////////////////////////////////////////////////////////////////////////
     using Seq = TypeLists::Repeat<int>;
 
     using Taken = TypeLists::Take<5, Seq>;
+
+    static_assert(TypeLists::LengthGreaterOrEqual<Taken, 5>);
+    static_assert(!TypeLists::LengthGreaterOrEqual<Taken, 6>);
 
     using TakenToTTuple = TypeLists::ConvertToTTuple<Taken>;
     static_assert(std::is_same_v<TakenToTTuple, TypeLists::TTuple<int, int, int, int, int>>);
@@ -119,32 +134,64 @@ int main() {
     static_assert(std::is_same_v<Taken::Tail::Head, int>);
 
     ////////////////////////////////////////////////////////////////////////////
-    // Get                                                                    //
+    // GetFromTTuple                                                          //
     ////////////////////////////////////////////////////////////////////////////
 
     using SingleTTuple = TypeLists::TTuple<int>;
 
-    static_assert(std::is_same_v<int, TypeLists::Get<0, SingleTTuple>>);
+    static_assert(std::is_same_v<int, TypeLists::GetFromTTuple<0, SingleTTuple>>);
 
-    static_assert(std::is_same_v<int, TypeLists::Get<0, SimpleTestTTuple>>);
-    static_assert(std::is_same_v<float, TypeLists::Get<1, SimpleTestTTuple>>);
-    static_assert(std::is_same_v<double, TypeLists::Get<2, SimpleTestTTuple>>);
+    static_assert(std::is_same_v<int, TypeLists::GetFromTTuple<0, SimpleTestTTuple>>);
+    static_assert(std::is_same_v<float, TypeLists::GetFromTTuple<1, SimpleTestTTuple>>);
+    static_assert(std::is_same_v<double, TypeLists::GetFromTTuple<2, SimpleTestTTuple>>);
 
-    //static_assert(std::is_same_v<int, TypeLists::Get<0, SimpleTestCycleTypeList>>;
+    static_assert(std::is_same_v<float, TypeLists::GetFromTypeList<130, SimpleTestCycleTypeList>>);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // GetFromTTupleWithErrorReturn                                           //
+    ////////////////////////////////////////////////////////////////////////////
+
+    static_assert(std::is_same_v<int, TypeLists::GetFromTTupleWithErrorReturn<0, SingleTTuple>>);
+    static_assert(std::is_same_v<TypeLists::ErrorReturn,
+                                 TypeLists::GetFromTTupleWithErrorReturn<1, SingleTTuple>>);
+
+    static_assert(std::is_same_v<int, TypeLists::GetFromTTupleWithErrorReturn<0, SimpleTestTTuple>>);
+    static_assert(std::is_same_v<float, TypeLists::GetFromTTupleWithErrorReturn<1, SimpleTestTTuple>>);
+    static_assert(std::is_same_v<double, TypeLists::GetFromTTupleWithErrorReturn<2, SimpleTestTTuple>>);
+
+    static_assert(std::is_same_v<TypeLists::ErrorReturn,
+                                 TypeLists::GetFromTTupleWithErrorReturn<42, SimpleTestTTuple>>);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // GetFromTypeList                                                        //
+    ////////////////////////////////////////////////////////////////////////////
+
+    static_assert(std::is_same_v<TypeLists::GetFromTypeList<0, SimpleTestTypeList>, int>);
+    static_assert(std::is_same_v<TypeLists::GetFromTypeList<1, SimpleTestTypeList>, float>);
+
+    // The following line does not compile.
+    //using GetAfterLastElement = TypeLists::GetFromTypeList<4, SimpleTestTypeList>;
 
     ////////////////////////////////////////////////////////////////////////////
     // concept RequireLengthGreaterOrEqual                                    //
     ////////////////////////////////////////////////////////////////////////////
 
-    //static_assert(TypeLists::LengthGreaterOrEqual<SimpleTestCycleTypeList, 0>);
+    static_assert(TypeLists::LengthGreaterOrEqual<SimpleTestCycleTypeList, 3>);
 
     static_assert(TypeLists::LengthGreaterOrEqual<SimpleTestTypeList, 2>);
     static_assert(TypeLists::LengthGreaterOrEqual<SimpleTestTypeList, 3>);
+
+    using ElementWithIndex3 = TypeLists::GetFromTypeListWithErrorReturn<3, SimpleTestTypeList>;
+
+    static_assert(std::is_same_v<ElementWithIndex3, TypeLists::ErrorReturn>);
+
     static_assert(!TypeLists::LengthGreaterOrEqual<SimpleTestTypeList, 4>);
+    static_assert(TypeLists::LengthGreaterOrEqual<SimpleTestCycleTypeList, 222>);
 
     ////////////////////////////////////////////////////////////////////////////
     // Drop                                                                   //
     ////////////////////////////////////////////////////////////////////////////
+
     using DropTestTuple = TypeLists::TTuple<int, float, double, long long>;
     using DropTestList = TypeLists::ConvertToTypeList<DropTestTuple>;
     using DropResult = TypeLists::Drop<2, DropTestList>;
@@ -154,6 +201,12 @@ int main() {
     static_assert(std::is_same_v<DropResult::Head, double>);
     static_assert(std::is_same_v<DropResult::Tail::Head, long long>);
 
+    using DroppedCycle = TypeLists::Drop<27, SimpleTestCycleTypeList>;
+    static_assert(std::is_same_v<DroppedCycle::Head,
+                                 SimpleTestCycleTypeList::Head>);
+    static_assert(std::is_same_v<DroppedCycle::Tail::Head,
+                                 SimpleTestCycleTypeList::Tail::Head>);
+
     ////////////////////////////////////////////////////////////////////////////
     // Replicate                                                              //
     ////////////////////////////////////////////////////////////////////////////
@@ -162,6 +215,7 @@ int main() {
 
     static_assert(std::is_same_v<Replicated::Head, size_t>);
     static_assert(std::is_same_v<Replicated::Tail::Head, size_t>);
+    static_assert(std::is_same_v<Replicated::Tail::Tail, TypeLists::Nil>);
 
     using ReplicatedToTTuple = TypeLists::ConvertToTTuple<Replicated>;
 
@@ -172,31 +226,36 @@ int main() {
     // Filter                                                                 //
     ////////////////////////////////////////////////////////////////////////////
 
-    using ToFilterTuple1 = TypeLists::TTuple<float, double, double>;
-    using ToFilterList1 = TypeLists::ConvertToTypeList<ToFilterTuple1>;
+    using ToFilterTuple = TypeLists::TTuple<float, double, double>;
+    using ToFilterList = TypeLists::ConvertToTypeList<ToFilterTuple>;
 
-    using FilteredList1 = TypeLists::Filter<IsIntegral, ToFilterList1>;
+    static_assert(std::is_same_v<ToFilterList::Head, float>);
+    static_assert(std::is_same_v<ToFilterList::Tail::Head, double>);
+    static_assert(std::is_same_v<ToFilterList::Tail::Tail::Head, double>);
+    static_assert(std::is_same_v<ToFilterList::Tail::Tail::Tail, TypeLists::Nil>);
 
-    using FilteredListToTuple1 = TypeLists::ConvertToTTuple<FilteredList1>;
+    using FilteredList1 = TypeLists::Filter<IsIntegral, ToFilterList>;
 
-    static_assert(std::is_same_v<FilteredListToTuple1,
-                                 TypeLists::TTuple<>>);
+    //using FilteredListToTuple1 = TypeLists::ConvertToTTuple<FilteredList1>;
 
-    using ToFilterTuple2 = TypeLists::TTuple<char, float, int>;
-    using ToFilterList2 = TypeLists::ConvertToTypeList<ToFilterTuple2>;
+    //static_assert(std::is_same_v<FilteredListToTuple1,
+    //                             TypeLists::TTuple<>>);
 
-    using FilteredList2 = TypeLists::Filter<IsIntegral, ToFilterList2>;
-
-    using FilteredListToTuple2 = TypeLists::ConvertToTTuple<FilteredList2>;
-
-    static_assert(std::is_same_v<FilteredListToTuple2,
-                                 TypeLists::TTuple<char, int>>);
-
-
+    //using ToFilterTuple2 = TypeLists::TTuple<char, float, int>;
+    //using ToFilterList2 = TypeLists::ConvertToTypeList<ToFilterTuple2>;
+    //
+    //using FilteredList2 = TypeLists::Filter<IsIntegral, ToFilterList2>;
+    //
+    //using FilteredListToTuple2 = TypeLists::ConvertToTTuple<FilteredList2>;
+    //
+    //static_assert(std::is_same_v<FilteredListToTuple2,
+    //                             TypeLists::TTuple<char, int>>);
+    //
+    //
     //using InfFilterResult = TypeLists::Filter<IsIntegral, SimpleTestCycleTypeList>;
-
-    //static_assert(std::is_same_v<InfFilterResult::Head, int>);
-
+    //
+    //static_assert(std::is_same_v<typename InfFilterResult::Head, int>);
+    //static_assert(std::is_same_v<typename InfFilterResult::Tail::Head, int>);
 
     ////////////////////////////////////////////////////////////////////////////
     // Map                                                                    //
@@ -327,6 +386,7 @@ int main() {
     using Zip2Result = TypeLists::Zip2<FirstTypeListToZip, SecondTypeListToZip>;
 
     static_assert(std::is_same_v<Zip2Result::Head::Head, int>);
+    static_assert(std::is_same_v<Zip2Result::Tail::Head::Head, float>);
 
     using Zip2ResultWithTTupleElements = TypeLists::Map<TypeLists::ConvertToTTuple, Zip2Result>;
 
@@ -337,6 +397,39 @@ int main() {
                                      TypeLists::TTuple<int, double>,
                                      TypeLists::TTuple<float, float>
                                  >>);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Zip2 for inf TypeLists
+
+    // int, float, double
+    using FirstTypeListTiLoop =
+        TypeLists::Cons<int,
+                        TypeLists::Cons<float,
+                                        TypeLists::Cons<double,
+                                                        TypeLists::Nil>>>;
+
+    // char, long long
+    using SecondTypeListToLoop =
+        TypeLists::Cons<char,
+                        TypeLists::Cons<long long, TypeLists::Nil>>;
+
+    using FirstTestInfTypeList = TypeLists::Cycle<FirstTypeListTiLoop>;
+    using SecondTestInfTypeList = TypeLists::Cycle<SecondTypeListToLoop>;
+
+    static_assert(std::is_same_v<int, TypeLists::GetFromTypeList<0, FirstTestInfTypeList>>);
+    static_assert(std::is_same_v<float, TypeLists::GetFromTypeList<1, FirstTestInfTypeList>>);
+
+    using InfZip2Res = TypeLists::Zip2<FirstTestInfTypeList, SecondTestInfTypeList>;
+
+    using FirstFromInfZipResilt = TypeLists::GetFromTypeList<0, InfZip2Res>;
+    using FourtySecondFromInfZipResilt = TypeLists::GetFromTypeList<41, InfZip2Res>;
+
+    using FirstFromInfZipResiltToTTuple = TypeLists::ConvertToTTuple<FirstFromInfZipResilt>;
+    using FourtySecondFromInfZipResiltToTTuple = TypeLists::ConvertToTTuple<FourtySecondFromInfZipResilt>;
+
+    static_assert(std::is_same_v<FirstFromInfZipResiltToTTuple, TypeLists::TTuple<int, char>>);
+    static_assert(std::is_same_v<FourtySecondFromInfZipResiltToTTuple, TypeLists::TTuple<double, long long>>);
+
 
     ////////////////////////////////////////////////////////////////////////////
     // Zip                                                                    //
@@ -362,11 +455,11 @@ int main() {
     // GroupBy                                                                //
     ////////////////////////////////////////////////////////////////////////////
 
-    //using OneTypeList = TypeLists::Cons<int, TypeLists::Nil>;
+    using OneTypeList = TypeLists::Cons<int, TypeLists::Nil>;
 
-    //using OneTypeGroupedBy = TypeLists::GroupBy<IsSame, OneTypeList>;
+    using OneTypeGroupedBy = TypeLists::GroupBy<IsSame, OneTypeList>;
 
-    //using FirstGroup = typename OneTypeGroupedBy::Head;
+    using FirstGroup = typename OneTypeGroupedBy::Head;
 
     using GroupByTestInputTTuple = TypeLists::TTuple<float, int, int>;
     using GroupByTestInputTypeList =
@@ -398,8 +491,6 @@ int main() {
     static_assert(std::is_same_v<SimpleTestCycleTypeList::Head, int>);
     static_assert(std::is_same_v<SimpleTestCycleTypeList::Tail::Head, float>);
     static_assert(std::is_same_v<SimpleTestCycleTypeList::Tail::Tail::Head, double>);
-
-    //static_assert(std::is_same_v<InfGroupByResult, TypeLists::Nil>);
 
     return 0;
 }
