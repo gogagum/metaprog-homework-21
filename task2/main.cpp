@@ -219,7 +219,7 @@ int main() {
 
     static_assert(std::is_same_v<Replicated::Head, size_t>);
     static_assert(std::is_same_v<Replicated::Tail::Head, size_t>);
-    static_assert(std::is_same_v<Replicated::Tail::Tail, TypeLists::Nil>);
+    static_assert(TypeLists::Empty<Replicated::Tail::Tail>);
 
     using ReplicatedToTTuple = TypeLists::ConvertToTTuple<Replicated>;
 
@@ -521,7 +521,7 @@ int main() {
 
     using FourtySecondZippedRawFromInfZipTTuple = TypeLists::ConvertToTTuple<FourtySecondZippedRawFromInfZip>;
 
-    //static_assert(std::is_same_v<FourtySecondZippedRawFromInfZipTTuple, TypeLists::TTuple<double, std::size_t, wchar_t>>);
+    static_assert(std::is_same_v<FourtySecondZippedRawFromInfZipTTuple, TypeLists::TTuple<double, std::size_t, long double>>);
 
     ////////////////////////////////////////////////////////////////////////////
     // GroupBy                                                                //

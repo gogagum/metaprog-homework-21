@@ -39,110 +39,224 @@ concept TypeList = Empty<TL> || TypeSequence<TL>;
 template<class... Ts>
 struct TTuple {};
 
+struct ErrorReturn {};
+
 /*
- * GetFromTTuple<N, TTuple>
+ * ApplyLogicNotToValue
+ * --------------------
+ * Value now is not value
  */
-template <std::size_t N, typename... Types>
-struct GetFromTTupleImpl;
+    template <class P>
+    struct ApplyLogicNotToValue {
+        const static bool Value = !P::Value;
+    };
 
-template <std::size_t N, typename FirstType, typename... OtherTypes>
-struct GetFromTTupleImpl<N, TTuple<FirstType, OtherTypes...>> {
- using Ret[[maybe_unused]] = typename GetFromTTupleImpl<N - 1, TTuple<OtherTypes...>>::Ret;
-};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+namespace Impl{
 
-template <typename FirstType, typename... OtherTypes>
-struct GetFromTTupleImpl<0, TTuple<FirstType, OtherTypes...>> {
- using Ret[[maybe_unused]] = FirstType;
-};
+    /*
+     * GetFromTTupleImpl<N, Types...>
+     */
+    template <std::size_t N, typename... Types>
+    struct GetFromTTupleImpl;
 
-template <typename OnlyType>
-struct GetFromTTupleImpl<0, TTuple<OnlyType>> {
-  using Ret[[maybe_unused]] = OnlyType;
-};
+    template <std::size_t N, typename FirstType, typename... OtherTypes>
+    struct GetFromTTupleImpl<N, TTuple<FirstType, OtherTypes...>> {
+        using Ret[[maybe_unused]] = typename GetFromTTupleImpl<N - 1, TTuple<OtherTypes...>>::Ret;
+    };
 
+    template <typename FirstType, typename... OtherTypes>
+    struct GetFromTTupleImpl<0, TTuple<FirstType, OtherTypes...>> {
+        using Ret[[maybe_unused]] = FirstType;
+    };
+
+    template <typename OnlyType>
+    struct GetFromTTupleImpl<0, TTuple<OnlyType>> {
+        using Ret[[maybe_unused]] = OnlyType;
+    };
+
+    /*
+     * GetFromTTupleWithErrorReturnImpl<N, Types...>
+     */
+    template <std::size_t N, typename... Types>
+    struct GetFromTTupleWithErrorReturnImpl;
+
+    template <std::size_t N, typename FirstType, typename... OtherTypes>
+    struct GetFromTTupleWithErrorReturnImpl<N, TTuple<FirstType, OtherTypes...>> {
+        using Ret[[maybe_unused]] = typename GetFromTTupleWithErrorReturnImpl<N - 1, TTuple<OtherTypes...>>::Ret;
+    };
+
+    template <typename FirstType, typename... TTupleTypes>
+    struct GetFromTTupleWithErrorReturnImpl<0, TTuple<FirstType, TTupleTypes...>> {
+        using Ret[[maybe_unused]] = FirstType;
+    };
+
+    template <std::size_t N, typename OnlyType>
+    struct GetFromTTupleWithErrorReturnImpl<N, TTuple<OnlyType>> {
+        using Ret[[maybe_unused]] = ErrorReturn;
+    };
+
+    template <typename OnlyType>
+    struct GetFromTTupleWithErrorReturnImpl<0, TTuple<OnlyType>> {
+        using Ret[[maybe_unused]] = OnlyType;
+    };
+
+    template <std::size_t N, TypeList TL>
+    struct GetFromTypeListImpl;
+
+    template <std::size_t N, TypeSequence TS>
+    struct GetFromTypeListImpl<N, TS> {
+        using Ret[[maybe_unused]] = typename GetFromTypeListImpl<N - 1, typename TS::Tail>::Ret;
+    };
+
+    template <TypeSequence TS>
+    struct GetFromTypeListImpl<0, TS> {
+        using Ret[[maybe_unused]] = typename TS::Head;
+    };
+
+    template <std::size_t N, TypeList TL>
+    struct GetFromTypeListWithErrorReturnImpl;
+
+    template <std::size_t N, TypeSequence TS>
+    struct GetFromTypeListWithErrorReturnImpl<N, TS> {
+        using Ret[[maybe_unused]] = typename GetFromTypeListWithErrorReturnImpl<N - 1, typename TS::Tail>::Ret;
+    };
+
+    template <TypeSequence TS>
+    struct GetFromTypeListWithErrorReturnImpl<0, TS> {
+        using Ret[[maybe_unused]] = typename TS::Head;
+    };
+
+    template <std::size_t N, Empty TE>
+    struct GetFromTypeListWithErrorReturnImpl<N, TE> {
+        using Ret[[maybe_unused]] = ErrorReturn;
+    };
+
+    template <typename Added, class TypeTuple>
+    struct TTupleConsImpl;
+
+    template <typename Added, typename... TTupleTypes>
+    struct TTupleConsImpl<Added, TTuple<TTupleTypes...>> {
+        using Ret[[maybe_unused]] = TTuple<Added, TTupleTypes...>;
+    };
+
+    /*
+     * struct ConvertToTTupleImpl
+     * Вспомогательная метафункция преобразования из TypeList в TTuple.
+     * Возвращаемое значение в ConvertedTailImpl<TL>::Converted
+     */
+    template <TypeList TL>
+    struct ConvertToTypeTupleImpl;
+
+    template <TypeSequence TS>
+    struct ConvertToTypeTupleImpl<TS> {
+    private:
+        using OtherParams = typename ConvertToTypeTupleImpl<typename TS::Tail>::Ret;
+        using FirstParam = typename TS::Head;
+    public:
+        using Ret[[maybe_unused]] = typename TTupleConsImpl<FirstParam , OtherParams>::Ret;
+    };
+
+    template <Empty TE>
+    struct ConvertToTypeTupleImpl<TE> {
+        using Ret[[maybe_unused]] = TTuple<>;
+    };
+
+    template <template <typename> class P, TypeList TL>
+    struct SkipWhileImpl;
+
+    template <template <typename> class P, TypeSequence TS>
+    struct SkipWhileImpl<P, TS> {
+    private:
+        template <bool Skip, typename _>
+        struct Decision;
+
+        template <typename _>
+        struct Decision<true, _> {
+            using Ret = TS;
+        };
+
+        template <typename _>
+        struct Decision<false, _> {
+            using Ret = typename SkipWhileImpl<P, typename TS::Tail>::Ret;
+        };
+
+    public:
+        using Ret = typename Decision<!P<typename TS::Head>::Value, TS>::Ret;
+    };
+
+    template <template <typename> class P, Empty TE>
+    struct SkipWhileImpl<P, TE> {
+        using Ret = Nil;
+    };
+
+    template <template <typename Arg> class P, TypeList TL>
+    struct FilterImpl{
+        using Ret = Nil;
+    };
+
+    template <template <typename> class P, TypeSequence TS>
+    struct FilterImpl<P, TS> {
+    private:
+        template <typename T>
+        using NotP = ApplyLogicNotToValue<P<T>>;
+
+        using Skipped = typename Impl::SkipWhileImpl<NotP, TS>::Ret;  // Skip all args for which P is false.
+
+        template <TypeList TL_>
+        struct AfterSkip;
+
+        template <TypeSequence TS_>
+        struct AfterSkip<TS_> {
+            using Head = typename TS_::Head;
+            using Tail = typename FilterImpl<P, typename TS_::Tail>::Ret;
+        };
+
+        template <Empty TE>
+        struct AfterSkip<TE> : Nil {};
+    public:
+        using Ret = AfterSkip<Skipped>;
+    };
+
+}
+
+/*
+ * GetFromTTuple<N, TT>
+ * ------------------------
+ * Get Nth element from TTuple TT.
+ */
 template <std::size_t N, typename TT>
-using GetFromTTuple = typename GetFromTTupleImpl<N, TT>::Ret;
+using GetFromTTuple = typename Impl::GetFromTTupleImpl<N, TT>::Ret;
 
 /*
  * GetFromTTupleWithErrorReturn<N, TTuple>
+ * ---------------------------------------
+ * Get Nth element from TTuple TT, or ErrorReturn, if TT is shorter than N.
  */
-struct ErrorReturn {};
-
-template <std::size_t N, typename... Types>
-struct GetFromTTupleWithErrorReturnImpl;
-
-template <std::size_t N, typename FirstType, typename... OtherTypes>
-struct GetFromTTupleWithErrorReturnImpl<N, TTuple<FirstType, OtherTypes...>> {
-  using Ret[[maybe_unused]] = typename GetFromTTupleWithErrorReturnImpl<N - 1, TTuple<OtherTypes...>>::Ret;
-};
-
-template <typename FirstType, typename... TTupleTypes>
-struct GetFromTTupleWithErrorReturnImpl<0, TTuple<FirstType, TTupleTypes...>> {
-  using Ret[[maybe_unused]] = FirstType;
-};
-
-template <std::size_t N, typename OnlyType>
-struct GetFromTTupleWithErrorReturnImpl<N, TTuple<OnlyType>> {
-  using Ret[[maybe_unused]] = ErrorReturn;
-};
-
-template <typename OnlyType>
-struct GetFromTTupleWithErrorReturnImpl<0, TTuple<OnlyType>> {
-  using Ret[[maybe_unused]] = OnlyType;
-};
-
 template <std::size_t N, typename TT>
-using GetFromTTupleWithErrorReturn = typename GetFromTTupleWithErrorReturnImpl<N, TT>::Ret;
+using GetFromTTupleWithErrorReturn = typename Impl::GetFromTTupleWithErrorReturnImpl<N, TT>::Ret;
 
 /*
- * GetFromTypeList<N, TypeList>
+ * GetFromTypeList<N, TL>
+ * ----------------------
+ * Get Nth element from TypeList TL.
  */
-template <std::size_t N, TypeList TL>
-struct GetFromTypeListImpl;
-
-template <std::size_t N, TypeSequence TS>
-struct GetFromTypeListImpl<N, TS> {
-  using Ret[[maybe_unused]] = typename GetFromTypeListImpl<N - 1, typename TS::Tail>::Ret;
-};
-
-template <TypeSequence TS>
-struct GetFromTypeListImpl<0, TS> {
-  using Ret[[maybe_unused]] = typename TS::Head;
-};
-
 template <size_t N, TypeList TL>
-using GetFromTypeList = typename GetFromTypeListImpl<N, TL>::Ret;
+using GetFromTypeList = typename Impl::GetFromTypeListImpl<N, TL>::Ret;
 
 /*
- * GetFromTypeListWithErrorReturn
+ * GetFromTypeListWithErrorReturn<N, TL>
+ * -------------------------------------
+ * Get Nth element from TypeList TL, or ErrorReturn, if TL is shorter than N.
  */
-
-template <std::size_t N, TypeList TL>
-struct GetFromTypeListWithErrorReturnImpl;
-
-template <std::size_t N, TypeSequence TS>
-struct GetFromTypeListWithErrorReturnImpl<N, TS> {
-  using Ret[[maybe_unused]] = typename GetFromTypeListWithErrorReturnImpl<N - 1, typename TS::Tail>::Ret;
-};
-
-template <TypeSequence TS>
-struct GetFromTypeListWithErrorReturnImpl<0, TS> {
-  using Ret[[maybe_unused]] = typename TS::Head;
-};
-
-template <std::size_t N, Empty TE>
-struct GetFromTypeListWithErrorReturnImpl<N, TE> {
-  using Ret[[maybe_unused]] = ErrorReturn;
-};
-
 template <size_t N, TypeList TL>
-using GetFromTypeListWithErrorReturn = typename GetFromTypeListWithErrorReturnImpl<N, TL>::Ret;
+using GetFromTypeListWithErrorReturn = typename Impl::GetFromTypeListWithErrorReturnImpl<N, TL>::Ret;
 
 /*
  * Concat
  */
 template <TypeList TL1, TypeList TL2>
-struct Concat;
+struct Concat : public Nil {};
 
 template <TypeSequence TS, TypeList TL>
 struct Concat<TS, TL> {
@@ -153,47 +267,17 @@ struct Concat<TS, TL> {
 template <Empty TE, TypeSequence TS>
 struct Concat<TE, TS> : public TS {};
 
-template <Empty TE1, Empty TE2>
-struct Concat<TE1, TE2> : Nil {};
-
 /*
- * TTupleCons
+ * TTupleCons<Added, TT>
+ * ---------------------
+ * Concat two type tuples - Added and TT.
  */
-template <typename Added, class TypeTuple>
-struct TTupleConsImpl;
+template <typename Added, typename TT>
+using TTupleCons = typename Impl::TTupleConsImpl<Added, TT>::Ret;
 
-template <typename Added, typename... TTupleTypes>
-struct TTupleConsImpl<Added, TTuple<TTupleTypes...>> {
-  using Ret[[maybe_unused]] = TTuple<Added, TTupleTypes...>;
-};
-
-template <typename Added, typename TypeTuple>
-using TTupleCons = typename TTupleConsImpl<Added, TypeTuple>::Ret;
-
-/*
- * struct ConvertToTTupleImpl
- * Вспомогательная метафункция преобразования из TypeList в TTuple.
- * Возвращаемое значение в ConvertedTailImpl<TL>::Converted
- */
-template <TypeList TL>
-struct ConvertToTypeTupleImpl;
-
-template <TypeSequence TS>
-struct ConvertToTypeTupleImpl<TS> {
- private:
-  using OtherParams = typename ConvertToTypeTupleImpl<typename TS::Tail>::Ret;
-  using FirstParam = typename TS::Head;
- public:
-  using Ret[[maybe_unused]] = TTupleCons<FirstParam , OtherParams>;
-};
-
-template <Empty TE>
-struct ConvertToTypeTupleImpl<TE> {
-  using Ret[[maybe_unused]] = TTuple<>;
-};
 
 template <TypeList TL>
-using ConvertToTTuple = typename ConvertToTypeTupleImpl<TL>::Ret;
+using ConvertToTTuple = typename Impl::ConvertToTypeTupleImpl<TL>::Ret;
 
 /*
  * ConvertToTypeList
@@ -220,8 +304,7 @@ struct ConvertToTypeList {
     using Tail = Nil;
   };
 
-  // getHeadImpl(TTupleInput<Types...>) - вспомогательная, нигде не вызываемая
-  // функция.
+  // getHeadImpl(TTupleInput<Types...>) - вспомогательная, нигде не вызываемая функция.
   // Схема работы:
   // TTuple<class... Types> -> class... Types -> ConvertToTypeListImpl<Types...>
   // -> TypeList::Head
@@ -247,8 +330,11 @@ struct ConvertToTypeList {
   using Tail [[maybe_unused]] = decltype(getTailImpl(std::declval<TTupleInput>()));
 };
 
-////////////////////////////////////////////////////////////////////////////////
-// Cons - добавление элемента в TypeList
+/*
+ * Cons<T, TL>
+ * -----------
+ * Add element T into beginning of TypeList TL.
+ */
 template <class T, TypeList TL>
 struct Cons {
   using Head = T;
@@ -256,7 +342,9 @@ struct Cons {
 };
 
 /*
- * Repeat - бесконечное повторение типа
+ * Repeat<T>
+ * ---------
+ * Infinite TypeList of T.
  */
 template <class T>
 struct Repeat {
@@ -265,7 +353,9 @@ struct Repeat {
 };
 
 /*
- * Take - взять первые N элементов из TypeList TL
+ * Take<N, TL>
+ * -----------
+ * Take first N types from TypeList TL
  */
 template <std::size_t N, TypeList TL>
 struct Take {
@@ -275,9 +365,6 @@ struct Take {
 
 template <TypeList TL>
 struct Take<0, TL> : Nil {};
-
-template <Empty TE>
-struct Take<0, TE> : Nil {};
 
 /*
  * concept LengthGreaterOrEqual
@@ -291,8 +378,11 @@ concept LengthGreaterOrEqual = TypeList<TL> && !std::is_same_v<GetFromTypeListWi
 template <typename TL, std::size_t len>
 concept TypeListOfLength = TypeList<TL> && LengthGreaterOrEqual<TL, len> && !LengthGreaterOrEqual<TL, len + 1>;
 
-////////////////////////////////////////////////////////////////////////////////
-// Drop - взять всё, кроме первых N элементов из TL
+/*
+ * Drop<N, TL>
+ * -----------
+ * Take all except for first N types from TypeList TL.
+ */
 template <std::size_t N, TypeList TL>
 struct Drop {
   using Head [[maybe_unused]] = typename Drop<N-1, typename TL::Tail>::Head;
@@ -308,18 +398,27 @@ struct Drop<0, TS> {
 template <Empty TE>
 struct Drop<0, TE> : public Nil {};
 
-////////////////////////////////////////////////////////////////////////////////
-// Replicate - N раз повторять тип T
+/*
+ * Replicate<N, T>
+ * ---------------
+ * N times repeat type T in TypeList.
+ */
 template <std::size_t N, typename T>
-struct Replicate : Cons<T, Replicate<N-1, T>> {};
+struct Replicate {
+    using Head = T;
+    using Tail = Replicate<N-1, T>;
+};
 
 template <typename T>
-struct Replicate<1, T> : Cons<T, Nil> {};
+struct Replicate<0, T> : Nil {};
 
-////////////////////////////////////////////////////////////////////////////////
-// Map список из результатов применения F к элементам TL
+/*
+ * Map<F, TL>
+ * ----------
+ * Apply F to all types of TypeList TL.
+ */
 template <template<typename T> class F, TypeList TL>
-struct Map;
+struct Map : public Nil {};
 
 template <template<typename T> class F, TypeSequence TS>
 struct Map<F, TS> {
@@ -327,88 +426,26 @@ struct Map<F, TS> {
     using Tail = Map<F, typename TS::Tail>;
 };
 
-template <template<typename T> class F, Empty TE>
-struct Map<F, TE> : public Nil {};
-
-////////////////////////////////////////////////////////////////////////////////
-// ApplyLogicNotToValue
-template <typename T>
-struct ApplyLogicNotToValue {
-    const static bool Value = !T::Value;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-// SkipWhile
+/*
+ * SkipWhile<P, TL>
+ * ----------------
+ * First TypeList tail for which P<TLTail::Head>::Value is true.
+ */
 template <template <typename> class P, TypeList TL>
-struct SkipWhileImpl;
-
-template <template <typename> class P, TypeSequence TS>
-struct SkipWhileImpl<P, TS> {
-private:
-    template <bool Skip, typename _>
-    struct Decision;
-
-    template <typename _>
-    struct Decision<true, _> {
-        using Ret = TS;
-    };
-
-    template <typename _>
-    struct Decision<false, _> {
-        using Ret = typename SkipWhileImpl<P, typename TS::Tail>::Ret;
-    };
-
-public:
-    using Ret = typename Decision<!P<typename TS::Head>::Value, TS>::Ret;
-};
-
-template <template <typename> class P, Empty TE>
-struct SkipWhileImpl<P, TE> {
-    using Ret = Nil;
-};
-
-template <template <typename> class P, TypeList TL>
-using SkipWhile = typename SkipWhileImpl<P, TL>::Ret;
-
-////////////////////////////////////////////////////////////////////////////////
-// Filter
-template <template <typename Arg> class P, TypeList TL>
-struct FilterImpl;
-
-template <template <typename> class P, TypeSequence TS>
-struct FilterImpl<P, TS> {
-private:
-    template <typename T>
-    using NotP = ApplyLogicNotToValue<P<T>>;
-
-    using Skipped = SkipWhile<NotP, TS>;
-
-    template <TypeList TL>
-    struct AfterSkip;
-
-    template <TypeSequence TS_>
-    struct AfterSkip<TS_> {
-        using Head = typename TS_::Head;
-        using Tail = typename FilterImpl<P, typename TS_::Tail>::Ret;
-    };
-
-    template <Empty TE>
-    struct AfterSkip<TE> : Nil {};
-public:
-    using Ret = AfterSkip<Skipped>;
-};
-
-template <template <typename> class P, Empty TE>
-struct FilterImpl<P, TE>{
-    using Ret = Nil;
-};
-
-template <template <typename> class P, TypeList TL>
-using Filter = typename FilterImpl<P, TL>::Ret;
-
+using SkipWhile = typename Impl::SkipWhileImpl<P, TL>::Ret;
 
 /*
- * Iterate
+ * Filter<P, TL>
+ * -------------
+ * Leave only types for which P<T>::Value is true.
+ */
+template <template <typename> class P, TypeList TL>
+using Filter = typename Impl::FilterImpl<P, TL>::Ret;
+
+/*
+ * Iterate<F, T>
+ * -------------
+ * T, F<T>, F<F<T>>...
  */
 template <template <typename Arg> class F, class T>
 struct Iterate {
