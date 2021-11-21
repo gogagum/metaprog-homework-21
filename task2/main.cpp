@@ -18,6 +18,45 @@ struct IsSame {
 template <class T>
 using NotIsIntegral = TypeLists::ApplyLogicNotToValue<IsIntegral<T>>;
 
+template <typename T1, typename T2>
+struct MakePair {
+  using Type = std::pair<T1, T2>;
+};
+
+template<auto V>
+struct ValueTag{ static constexpr auto Value = V; };
+
+template<typename T>
+struct AddOne{ static constexpr auto Value = T::Value + 1; };
+
+template<class F, class S>
+struct Sum {
+  static constexpr auto Value = F::Value + S::Value;
+};
+
+template<typename F, typename S>
+struct LastTwoAdder {
+ private:
+  using Sum_ = Sum<F, S>;
+ public:
+  using Head = Sum_;
+  using Tail = LastTwoAdder<S, Sum_>;
+};
+
+using Fibs = TypeLists::Cons<ValueTag<0>, LastTwoAdder<ValueTag<0>, ValueTag<1>>>;
+
+template<TypeLists::TypeSequence TailNumbers>
+struct PrimesImpl{
+  template <typename T>
+  struct Erase {
+      const static bool Value = T::Value % TailNumbers::Head::Value != 0;
+  };
+
+  using Head = typename TailNumbers::Head;
+  using Tail = PrimesImpl<TypeLists::Filter<Erase, typename TailNumbers::Tail>>;
+};
+
+
 int main() {
 
     // Проверки того, что TypeLists::TypeListStruct соответствует концепту
@@ -374,14 +413,34 @@ int main() {
     using ScanlTestTTuple = TypeLists::TTuple<float, double>;
     using ScanlTestTypeList = TypeLists::ConvertToTypeList<ScanlTestTTuple>;
 
-    using ScanlResult = TypeLists::Scanl<std::pair, int, ScanlTestTypeList>;
+    using ScanlResult = TypeLists::Scanl<MakePair, int, ScanlTestTypeList>;
+
+    static_assert(std::is_same_v<ScanlResult::Head,
+                                 std::pair<int, float>>);
+    static_assert(std::is_same_v<ScanlResult::Tail::Head,
+                                 std::pair<std::pair<int, float>, double>>);
 
     using ScanlResultTTuple = TypeLists::ConvertToTTuple<ScanlResult>;
 
     static_assert(std::is_same_v<ScanlResultTTuple,
-            TypeLists::TTuple<std::pair<int, float>,
-                    std::pair<std::pair<int, float>, double>>>);
+                  TypeLists::TTuple<std::pair<int, float>,
+                                    std::pair<std::pair<int, float>, double>>>);
 
+    using InfScanlResult = TypeLists::Scanl<MakePair, std::size_t, SimpleTestCycleTypeList>;
+
+    static_assert(std::is_same_v<
+                      TypeLists::GetFromTypeList<2, InfScanlResult>,
+                          std::pair<
+                              std::pair<
+                                  std::pair<
+                                      std::size_t,
+                                      int
+                                  >,
+                                  float
+                              >,
+                              double
+                          >
+                      >);
 
     ////////////////////////////////////////////////////////////////////////////
     // Foldl                                                                  //
@@ -478,8 +537,7 @@ int main() {
             >>);
 
     ////////////////////////////////////////////////////////////////////////////
-    // Infinite Zip                                                           //
-    ////////////////////////////////////////////////////////////////////////////
+    // Infinite Zip
 
     // int, float, double
     using FirstTestTypeListForZip = SimpleTestTypeList;
@@ -546,8 +604,6 @@ int main() {
     static_assert(std::is_same_v<GroupByResult::Tail::Head::Tail::Head, int>);
     static_assert(std::is_same_v<GroupByResult::Tail::Head::Tail::Tail, TypeLists::Nil>);
 
-    static_assert(std::is_same_v<GroupByResult::Tail::Tail, TypeLists::Nil>);
-
     using GroupByResultAsTTuples = TypeLists::Map<TypeLists::ConvertToTTuple, GroupByResult>;
 
     using GroupByResultAsTupleOfTuples = TypeLists::ConvertToTTuple<GroupByResultAsTTuples>;
@@ -560,8 +616,24 @@ int main() {
 
     using InfGroupByResult = TypeLists::GroupBy<IsSame, SimpleTestCycleTypeList>;
 
-    static_assert(std::is_same_v<SimpleTestCycleTypeList::Head, int>);
-    static_assert(std::is_same_v<SimpleTestCycleTypeList::Tail::Head, float>);
-    static_assert(std::is_same_v<SimpleTestCycleTypeList::Tail::Tail::Head, double>);
+    static_assert(std::is_same_v<TypeLists::GetFromTypeList<0, InfGroupByResult>::Head , int>);
+    static_assert(std::is_same_v<TypeLists::GetFromTypeList<1, InfGroupByResult>::Head, float>);
+    static_assert(std::is_same_v<TypeLists::GetFromTypeList<2, InfGroupByResult>::Head, double>);
 
+    static_assert(std::is_same_v<TypeLists::GetFromTypeList<54, InfGroupByResult>::Head, int>);
+
+    using Nats = TypeLists::Iterate<AddOne, ValueTag<1>>;
+
+    static_assert(TypeLists::GetFromTypeList<41, Nats>::Value == 42);
+
+    static_assert(TypeLists::GetFromTypeList<3, Fibs>::Value == 3);
+    static_assert(TypeLists::GetFromTypeList<21, Fibs>::Value == 17711);
+
+
+    using Primes = PrimesImpl<Nats::Tail>;
+
+    static_assert(TypeLists::GetFromTypeList<0, Primes>::Value == 2);
+    static_assert(TypeLists::GetFromTypeList<1, Primes>::Value == 3);
+    static_assert(TypeLists::GetFromTypeList<2, Primes>::Value == 5);
+    static_assert(TypeLists::GetFromTypeList<6, Primes>::Value == 17);
 }
