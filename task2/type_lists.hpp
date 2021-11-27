@@ -619,48 +619,6 @@ struct Zip<TS>{
  * GroupBy
  */
 
-/*
-template <template<class Arg1, class Arg2> class Eq, TypeList Accumulated, TypeList InitialGroups, TypeList Tail_>
-struct GroupByImpl;
-
-template <template<class Arg1, class Arg2> class Eq, TypeList Accumulated, TypeList InitialGroups, Empty EmptyTail>
-struct GroupByImpl<Eq, Accumulated, InitialGroups, EmptyTail> {
-  using Ret = Cons<Accumulated, Nil>;
-};
-
-template <template<class Arg1, class Arg2> class Eq, Empty Accumulated, TypeList InitialGroups, TypeSequence Tail>
-struct GroupByImpl<Eq, Accumulated, InitialGroups, Tail> {
-  using Ret = typename GroupByImpl<Eq, Cons<typename Tail::Head, Nil>, InitialGroups, typename Tail::Tail>::Ret;
-};
-
-template <template<class Arg1, class Arg2> class Eq, TypeList Accumulated, TypeList InitialGroups, TypeSequence TS>
-struct GroupByImpl<Eq, Accumulated, InitialGroups, TS> {
-  template <TypeList Groups, bool continueAccumulate>
-  struct Step;
-
-  template <TypeList Groups>
-  struct Step<Groups, true>{
-    using Accumulated_ = Cons<typename TS::Head, Accumulated>;
-    using Groups_ = Groups;
-  };
-
-  template <TypeList Groups>
-  struct Step<Groups, false>{
-    using Accumulated_ = Cons<typename TS::Head, Nil>;
-    using Groups_ = Cons<Accumulated, Groups>;
-  };
-
-  using NewStep = Step<InitialGroups, Eq<typename Accumulated::Head, typename TS::Head>::Value>;
-  using NewGroups = typename NewStep::Groups_;
-  using NewAccumulated = typename NewStep::Accumulated_;
-
-  using Ret = Concat<InitialGroups, typename GroupByImpl<Eq, NewAccumulated, NewGroups, typename TS::Tail>::Ret>;
-};
-
-template <template<class Arg1, class Arg2> class Eq, TypeList TL>
-using GroupBy = typename GroupByImpl<Eq, Nil, Nil, TL>::Ret;
-*/
-
 template<template<typename> class P, TypeList TL>
 struct TakeWhileImpl {
   using Ret = Nil;
@@ -705,15 +663,5 @@ struct GroupBy<Eq, TS>{
 };
 
 } // namespace TypeLists
-
-
-
-
-
-
-
-
-
-
 
 #endif //TYPE_LISTS_HPP_
