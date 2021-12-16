@@ -1,6 +1,10 @@
 #include <iostream>
 #include "enum_traits.hpp"
 
+enum class Shape {
+  SQUARE, CIRCLE = 5, LINE, POINT = -2
+};
+
 int main() {
 
     //ABC::abc(TestEnum(2));
@@ -10,26 +14,17 @@ int main() {
       APPLE, MELON
     };
 
-    enum class Shape {
-      SQUARE, CIRCLE = 5, LINE, POINT = -2
-    };
 
-    static_assert(EnumeratorTraits<Shape, 100>::size() == 4);
-    static_assert(EnumeratorTraits<Fruit, 100>::size() == 2);
+    static_assert(EnumeratorTraits<Shape>::size() == 4);
+    static_assert(EnumeratorTraits<Fruit>::size() == 2);
 
+    static_assert(EnumeratorTraits<Fruit>::nameAt(0) == "APPLE");
+    static_assert(EnumeratorTraits<Fruit>::nameAt(1) == "MELON");
+    static_assert(EnumeratorTraits<Shape>::nameAt(0) == "POINT");
 
-
-    static_assert(EnumeratorTraits<Fruit, 100>::nameAt(0) == "APPLE");
-    static_assert(EnumeratorTraits<Fruit, 100>::nameAt(1) == "MELON");
-    static_assert(EnumeratorTraits<Shape, 100>::nameAt(0) == "POINT");
-
-    std::cout << EnumeratorTraits<Shape, 100>::nameAt(0) << std::endl;
-
-
-    static_assert(EnumeratorTraits<Shape, 100>::at(0) == Shape::POINT);
-    static_assert(EnumeratorTraits<Shape, 100>::at(1) == Shape::SQUARE);
-    static_assert(EnumeratorTraits<Shape, 100>::at(3) == Shape::LINE);
-
+    static_assert(EnumeratorTraits<Shape>::at(0) == Shape::POINT);
+    static_assert(EnumeratorTraits<Shape>::at(1) == Shape::SQUARE);
+    static_assert(EnumeratorTraits<Shape>::at(3) == Shape::LINE);
 
     return 0;
 
