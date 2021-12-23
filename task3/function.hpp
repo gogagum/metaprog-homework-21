@@ -18,8 +18,7 @@ class Function<R(Args...)>
 {
   using FuncPtr = R(*)(void*, Args...);
 
-  struct InvokeTable
-  {
+  struct InvokeTable {
     void(*dtor_)(void*) {nullptr};
     void*(*copy_)(void*) {nullptr};
   };
@@ -65,67 +64,64 @@ class Function<R(Args...)>
 
   ~Function();
 
- private:
-  void makeEmpty() {
-      call_ = nullptr;
+  void copyFromFunctionPointerImpl(R(*ptr)(Args...)) {
+      data_ = (void*)ptr;
+      call_ = +[](void* self, Args... args) -> R {
+        return reinterpret_cast<R(*)(Args...)>(self)(args...);
+      };
       table_.dtor_ = nullptr;
-      table_.copy_ = nullptr;
-      data_ = nullptr;
+      table_.copy_ = +[](void* self) -> void* {
+        return self;
+      };
+  }
 
-      isEmpty_ = true;
+  template<class F>
+  void copyFromFunctionalObj(F* func) {
+      data_ = new F(*static_cast<F*>(func));
+      call_ = +[](void* self, Args...args) -> R {
+          return static_cast<F*>(self)->operator()(args...);
+      };
+      table_.dtor_ = +[](void* self) {
+          delete static_cast<F*>(self);
+      };
+      table_.copy_ = +[](void* self) -> void* {
+          return new F(*static_cast<F*>(self));
+      };
   }
 
  private:
   FuncPtr call_{nullptr};
   InvokeTable table_;
   void* data_;
-  bool isEmpty_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
-Function<R(Args...)>::Function() : isEmpty_(true) {
-    makeEmpty();
-}
-
-//----------------------------------------------------------------------------//
-template<class R, class... Args>
 template<class F>
 requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
-    && std::copyable<F>
-Function<R(Args...)>::Function(const F& f) : isEmpty_(false) {
+     && std::copyable<F>
+Function<R(Args...)>::Function(const F& f) {
     using Func = std::remove_cvref_t<F>;
-    data_ = new Func(f);
-
-    call_ =
-        +[](void* self, Args... args) {
-          return static_cast<Func*>(self)->operator()(args...);
-        };
-    table_.dtor_ =
-        +[](void* self) {
-            delete static_cast<Func*>(self);
-        };
-    table_.copy_ =
-        +[](void* self) -> void* {
-          return new Func(*static_cast<Func*>(self));
-        };
+    // Call destructor, if needed.
+    if (table_.dtor_) {
+        table_.dtor_(data_);
+        table_.dtor_ = nullptr;
+    }
+    if constexpr (std::is_same_v<Func, R(*)(Args...)>) {
+        copyFromFunctionPointerImpl(f);
+    } else {
+        copyFromFunctionalObj(const_cast<Func*>(&f));
+    }
 }
 
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
-Function<R(Args...)>::Function(const Function &other) : isEmpty_(false) {
-    if (other.isEmpty_) {
-        if (table_.dtor_) {
-        //    table_.dtor_(data_);
-        }
-        makeEmpty();
-    } else {
-        data_ = other.table_.copy_(other.data_);
-        call_ = other.call_;
-        table_.dtor_ = other.table_.dtor_;
-        table_.copy_ = other.table_.copy_;
-    }
+Function<R(Args...)>::Function(const Function &other) {
+    data_ = other.table_.copy_(other.data_);
+    call_ = other.call_;
+    table_.dtor_ = other.table_.dtor_;
+    table_.copy_ = other.table_.copy_;
 }
 
 //----------------------------------------------------------------------------//
@@ -133,7 +129,7 @@ template<class R, class... Args>
 template<class F>
 requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
       && std::movable<F> && (!std::copyable<F>)
-Function<R(Args...)>::Function(F&& f) noexcept : isEmpty_(false) {
+Function<R(Args...)>::Function(F&& f) noexcept {
     using Func = std::remove_cvref_t<F>;
 
     data_ = new Func(std::forward<Func>(f));
@@ -153,44 +149,29 @@ Function<R(Args...)>::Function(F&& f) noexcept : isEmpty_(false) {
 
 //----------------------------------------------------------------------------//
 template <class R, class... Args>
-Function<R(Args...)>::Function(Function<R(Args...)>&& other) noexcept : isEmpty_(false) {
-    if (other.isEmpty_) {
-        if (table_.dtor_) {
-        //    table_.dtor_(data_);
-        }
-        makeEmpty();
-    } else {
-        if (table_.dtor_) {
-        //    table_.dtor_(data_);
-        }
+Function<R(Args...)>::Function(Function<R(Args...)>&& other) noexcept {
+    data_ = other.table_.copy_(other.data_);
+    call_ = std::move(other.call_);
+    table_ = std::move(other.table_);
 
-        data_ = other.table_.copy_(other.data_);
-        call_ = std::move(other.call_);
-        table_ = std::move(other.table_);
-
-        other.table_.dtor_ = nullptr;
-    }
+    other.table_.dtor_ = nullptr;
 }
 
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
 Function<R(Args...)>&
 Function<R(Args...)>::operator=(Function&& other) noexcept {
-    if (other.isEmpty_) {
-        if (table_.dtor_) {
-        //    table_.dtor_(data_);
-        }
-        makeEmpty();
-    } else {
-        if (table_.dtor_) {
-        //    table_.dtor_(data_);
-        }
-        isEmpty_ = false;
+    if (table_.dtor_) {
+        table_.dtor_(data_);
+        table_.dtor_ = nullptr;
+    }
 
-        data_ = other.data_;
-        call_ = other.call_;
-        table_ = other.table_;
+    data_ = other.table_.copy_(other.data_);
 
+    call_ = std::move(other.call_);
+    table_ = std::move(other.table_);
+
+    if (&other != this) {
         other.table_.dtor_ = nullptr;
     }
 
@@ -206,27 +187,17 @@ Function<R(Args...)>&
 Function<R(Args...)>::operator=(const F& f) {
     using Func = std::remove_cvref_t<F>;
 
-    isEmpty_ = false;
     if (table_.dtor_) {
-    //    table_.dtor_(data_);
-    }
-    if constexpr (std::is_same_v<Func, void(*)(unsigned)>) {
-        data_ = (void*)f;
-        call_ = +[](void* self, Args... args) {
-            return reinterpret_cast<Func>(self)(args...);
-        };
+        table_.dtor_(data_);
         table_.dtor_ = nullptr;
-        table_.copy_ = +[](void* self) -> void* {
-                           return self;
-                       };
-    } else {
-        data_ = (void*)&f;
-        call_ = +[](void* self, Args...args) {
-            return static_cast<Func*>(self)->operator()(args...);
-        };
-        table_.dtor_ = +[](void* self) { delete static_cast<Func*>(self); };
-        table_.copy_ = +[](void* self) -> void* { return new Func(*static_cast<Func*>(self)); };
     }
+
+    if constexpr (std::is_same_v<Func, void(*)(unsigned)>) {
+        copyFromFunctionPointerImpl(f);
+    } else {
+        copyFromFunctionalObj(const_cast<Func*>(&f));
+    }
+
     return *this;
 }
 
@@ -238,9 +209,9 @@ requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
 Function<R(Args...)> &
 Function<R(Args...)>::operator=(F &&f) noexcept {
     using Func = std::remove_cvref_t<F>;
-    isEmpty_ = false;
     if (table_.dtor_) {
-    //    table_.dtor_(data_);
+        table_.dtor_(data_);
+        table_.dtor_ = nullptr;
     }
 
     if constexpr (std::is_same_v<Func, void(*)(unsigned)>) {
@@ -257,8 +228,12 @@ Function<R(Args...)>::operator=(F &&f) noexcept {
         call_ = +[](void* self, Args...args) {
           return static_cast<Func*>(self)->operator()(args...);
         };
-        table_.dtor_ = +[](void* self) { delete static_cast<Func*>(self); };
-        table_.copy_ = +[](void* self) { return self; };
+        table_.dtor_ = +[](void* self) {
+            delete static_cast<Func*>(self);
+        };
+        table_.copy_ = +[](void* self) -> void* {
+            return self;
+        };
     }
     return *this;
 }
@@ -266,17 +241,15 @@ Function<R(Args...)>::operator=(F &&f) noexcept {
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
 R Function<R(Args...)>::operator()(Args... args) {
-    if (!isEmpty_) {
-        return call_(data_, args...);
-    }
-    return R();
+    return call_(data_, args...);
 }
 
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
 Function<R(Args...)>::~Function() {
     if (table_.dtor_) {
-    //    table_.dtor_(data_);
+        table_.dtor_(data_);
+        table_.dtor_ = nullptr;
     }
 }
 
@@ -288,26 +261,25 @@ Function<R(Args...)>::operator=(const Function<R(Args...)>& other) {
         return *this;
     }
 
-    if (other.isEmpty_) {
-        if (table_.dtor_) {
-        //    table_.dtor_(data_);
-        }
-        makeEmpty();
-    } else {
-        isEmpty_ = false;
-
-        if (table_.dtor_) {
-        //    table_.dtor_(data_);
-        }
-        data_ = other.table_.copy_(other.data_);
-
-        call_ = other.call_;
-        table_.dtor_ = other.table_.dtor_;
-        table_.copy_ = other.table_.copy_;
+    if (table_.dtor_) {
+        table_.dtor_(data_);
+        table_.dtor_ = nullptr;
     }
+    data_ = other.table_.copy_(other.data_);
+
+    call_ = other.call_;
+    table_.dtor_ = other.table_.dtor_;
+    table_.copy_ = other.table_.copy_;
 
     return *this;
 }
-
+template<class R, class... Args>
+Function<R(Args...)>::Function() {
+    if constexpr(std::is_same_v<R, void>) {
+        copyFromFunctionPointerImpl(+[](Args...) -> void { });
+    } else {
+        copyFromFunctionPointerImpl(+[](Args...) -> R {return R{};});
+    }
+}
 
 #endif //TASK3__FUNCTION_HPP_

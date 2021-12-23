@@ -6,7 +6,6 @@
 #define TASK3__SPY_HPP_
 
 #include "function.hpp"
-//#include <boost/function.hpp>
 
 template <class T>
 concept MoveOnly = std::movable<T> && (!std::copyable<T>);
@@ -40,7 +39,7 @@ class Spy {
 
   explicit Spy(const T& o) requires std::copyable<T>;
 
-  explicit Spy(T&& o) requires std::movable<T>;
+  explicit Spy(T&& o) noexcept requires std::movable<T>;
 
   Spy(const Spy& other) requires std::copyable<T>;
 
@@ -71,10 +70,6 @@ class Spy {
       f_ = std::forward<Logger>(logger);
   };
 
-  ~Spy() noexcept requires std::is_nothrow_destructible_v<T> = default;
-
-  ~Spy() = default;
-
  private:
   std::size_t numberOfCalls_ = 0;
   std::size_t numberOfProxy_ = 0;
@@ -89,7 +84,7 @@ Spy<T>::Spy(const T& o) requires std::copyable<T> : held_(o) {}
 
 //----------------------------------------------------------------------------//
 template<class T>
-Spy<T>::Spy(T &&o) requires std::movable<T> : held_(std::move(o)) {}
+Spy<T>::Spy(T &&o) noexcept requires std::movable<T> : held_(std::move(o)) {}
 
 //----------------------------------------------------------------------------//
 template<class T>
@@ -146,7 +141,7 @@ template<class T>
 Spy<T>&
 Spy<T>::operator=(Spy<T> &&other) noexcept requires std::movable<T> {
     held_ = std::move(other.held_);
-    f_ = other.f_;
+    f_ = std::forward<Function<void(unsigned)>>(other.f_);
     numberOfCalls_ = other.numberOfCalls_;
     numberOfProxy_ = other.numberOfProxy_;
 
