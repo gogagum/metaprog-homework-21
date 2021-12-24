@@ -11,6 +11,7 @@ enum class Shape { // : int
 
 // check compile time capabilities
 
+
 static_assert(EnumeratorTraits<Shape>::size() == 4);
 static_assert(EnumeratorTraits<Shape>::nameAt(0) == "POINT");
 static_assert(EnumeratorTraits<Shape>::at(0) == Shape::POINT);
@@ -63,6 +64,16 @@ enum UnscopedEmpty : long long {};
 
 
 int main() {
+    /*
+    std::cout << EnumeratorTraits<Shape>::nameAt(0) << std::endl;
+
+    std::cout << StructWithEnumElementParameter<(Shape)0>::getNameImpl() << std::endl;
+    std::cout << StructWithEnumElementParameter<(Shape)0>::getName() << std::endl;
+
+    std::cout << StructWithEnumElementParameter<(Shape)1>::getNameImpl() << std::endl;
+    std::cout << StructWithEnumElementParameter<(Shape)1>::getName() << std::endl;
+    */
+
     check<Shape>("Shape", se(Shape, POINT), se(Shape, SQUARE), se(Shape, CIRCLE), se(Shape, LINE));
     check<Fruit>("Fruit", ue(APPLE), ue(BANANA), ue(MELON));
     check<Vegetable>("Vegetable", ue(CUCUMBER), ue(TOMATO), ue(ONION));
@@ -72,6 +83,7 @@ int main() {
 
     check<ScopedEmpty>("ScopedEmpty");
     check<UnscopedEmpty>("UnscopedEmpty");
+
 
     return 0;
 }
