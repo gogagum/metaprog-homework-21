@@ -44,7 +44,7 @@ class Function<R(Args...)>
         && std::movable<F> && (!std::copyable<F>)
   explicit Function(F&& f) noexcept;
 
-  Function(Function<R(Args...)>&& other) noexcept ;
+  Function(Function<R(Args...)>&& other) noexcept = default;
 
   // & assiqnment
   template<class F>
@@ -147,14 +147,6 @@ Function<R(Args...)>::Function(F&& f) noexcept {
 }
 
 //----------------------------------------------------------------------------//
-template <class R, class... Args>
-Function<R(Args...)>::Function(Function<R(Args...)>&& other) noexcept {
-    data_ = std::move(other.data_);
-    call_ = std::move(other.call_);
-    table_ = std::move(other.table_);
-}
-
-//----------------------------------------------------------------------------//
 template<class R, class... Args>
 Function<R(Args...)>&
 Function<R(Args...)>::operator=(Function&& other) noexcept {
@@ -190,7 +182,7 @@ Function<R(Args...)>::operator=(const F& f) {
         table_.dtor_ = nullptr;
     }
 
-    if constexpr (std::is_same_v<Func, void(*)(unsigned)>) {
+    if constexpr (std::is_same_v<Func, R(*)(Args...)>) {
         copyFromFunctionPointerImpl(f);
     } else {
         copyFromFunctionalObj(const_cast<Func*>(&f));
@@ -212,7 +204,7 @@ Function<R(Args...)>::operator=(F&& f) noexcept {
         table_.dtor_ = nullptr;
     }
 
-    if constexpr (std::is_same_v<Func, void(*)(unsigned)>) {
+    if constexpr (std::is_same_v<Func, R(*)(Args...)>) {
         data_ = (void*)f;
         call_ = +[](void* self, Args... args) {
           return reinterpret_cast<Func>(self)(args...);
