@@ -21,13 +21,33 @@ struct Mapping {
   };
 };
 
+template <class TakenMapping, class Base, class Target>
+concept CorrectMapping =
+    std::is_same_v<
+        TakenMapping,
+        Mapping<
+            typename TakenMapping::From_,
+            TakenMapping::getTarget()
+        >
+    >
+    &&
+    std::derived_from<typename TakenMapping::From_, Base>
+    &&
+    (
+        std::is_same_v<decltype(TakenMapping::getTarget()), Target>
+        ||
+        std::is_same_v<decltype(TakenMapping::getTarget()), const Target>
+    )
+;
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // ClassMapper - class from task.
 template <class Base, class Target, class... Mappings>
 class ClassMapper {
 
  private:
-  template<class TakenMapping, class... Mappings_>
+  template<CorrectMapping<Base, Target> TakenMapping, class... Mappings_>
   struct MapImpl;
 
  public:
@@ -49,7 +69,7 @@ class ClassMapper {
       }
   };
 
-  template <class TakenMapping, class... Mappings_>
+  template <CorrectMapping<Base, Target> TakenMapping, class... Mappings_>
   struct MapImpl {
     static std::optional<Target> mapImpl(const Base& object) {
         auto* objPtr = dynamic_cast<const typename TakenMapping::From_*>(&object);
@@ -61,7 +81,7 @@ class ClassMapper {
     }
   };
 
-  template <class TakenMapping>
+  template <CorrectMapping<Base, Target> TakenMapping>
   struct MapImpl<TakenMapping> {
     static std::optional<Target> mapImpl(const Base& object) {
         auto* objPtr = dynamic_cast<const typename TakenMapping::From_*>(&object);
