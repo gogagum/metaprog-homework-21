@@ -104,10 +104,6 @@ requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
 Function<R(Args...)>::Function(const F& f) {
     using Func = std::remove_cvref_t<F>;
     // Call destructor, if needed.
-    if (table_.dtor_) {
-        table_.dtor_(data_);
-        table_.dtor_ = nullptr;
-    }
     if constexpr (std::is_same_v<Func, R(*)(Args...)>) {
         copyFromFunctionPointerImpl(f);
     } else {
@@ -136,21 +132,24 @@ Function<R(Args...)>::Function(F&& f) noexcept {
 
     call_ =
         +[](void* self, Args... args) {
-          return static_cast<Func*>(self)->operator()(args...);
+            return static_cast<Func*>(self)->operator()(args...);
         };
-    table_.dtor_ = +[](void* self) {
-                       delete static_cast<Func*>(self);
-                   };
+    table_.dtor_ =
+        +[](void* self) {
+            delete static_cast<Func*>(self);
+        };
     table_.copy_ =
         +[](void* self) -> void* {
-          return new Func(*static_cast<F*>(self));
+            return new Func(std::forward<Func>(*static_cast<F*>(self)));
         };
 }
 
 //----------------------------------------------------------------------------//
 template <class R, class... Args>
 Function<R(Args...)>::Function(Function<R(Args...)>&& other) noexcept {
-    data_ = other.table_.copy_(other.data_);
+    data_ = other.table_.copy_(data_);
+    other.data_ = nullptr;
+
     call_ = std::move(other.call_);
     table_ = std::move(other.table_);
 
@@ -161,12 +160,17 @@ Function<R(Args...)>::Function(Function<R(Args...)>&& other) noexcept {
 template<class R, class... Args>
 Function<R(Args...)>&
 Function<R(Args...)>::operator=(Function&& other) noexcept {
+    if (&other == this) {
+        return *this;
+    }
+
     if (table_.dtor_) {
         table_.dtor_(data_);
         table_.dtor_ = nullptr;
     }
 
     data_ = other.table_.copy_(other.data_);
+    other.data_ = nullptr;
 
     call_ = std::move(other.call_);
     table_ = std::move(other.table_);
@@ -207,7 +211,7 @@ template<class F>
 requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
       && std::movable<F>
 Function<R(Args...)> &
-Function<R(Args...)>::operator=(F &&f) noexcept {
+Function<R(Args...)>::operator=(F&& f) noexcept {
     using Func = std::remove_cvref_t<F>;
     if (table_.dtor_) {
         table_.dtor_(data_);
@@ -221,10 +225,10 @@ Function<R(Args...)>::operator=(F &&f) noexcept {
         };
         table_.dtor_ = nullptr;
         table_.copy_ = +[](void* self) -> void* {
-          return new Func(*static_cast<Func*>(self));
+          return self;
         };
     } else {
-        data_ = (void*)&f;
+        data_ = new Func(std::forward<F>(f));
         call_ = +[](void* self, Args...args) {
           return static_cast<Func*>(self)->operator()(args...);
         };
@@ -232,7 +236,7 @@ Function<R(Args...)>::operator=(F &&f) noexcept {
             delete static_cast<Func*>(self);
         };
         table_.copy_ = +[](void* self) -> void* {
-            return self;
+            return new Func(std::forward<Func>(*static_cast<Func*>(self)));
         };
     }
     return *this;
@@ -247,7 +251,7 @@ R Function<R(Args...)>::operator()(Args... args) {
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
 Function<R(Args...)>::~Function() {
-    if (table_.dtor_) {
+    if (table_.dtor_ && data_ != nullptr) {
         table_.dtor_(data_);
         table_.dtor_ = nullptr;
     }
@@ -265,6 +269,7 @@ Function<R(Args...)>::operator=(const Function<R(Args...)>& other) {
         table_.dtor_(data_);
         table_.dtor_ = nullptr;
     }
+
     data_ = other.table_.copy_(other.data_);
 
     call_ = other.call_;
@@ -278,7 +283,7 @@ Function<R(Args...)>::Function() {
     if constexpr(std::is_same_v<R, void>) {
         copyFromFunctionPointerImpl(+[](Args...) -> void { });
     } else {
-        copyFromFunctionPointerImpl(+[](Args...) -> R {return R{};});
+        copyFromFunctionPointerImpl(+[](Args...) -> R { return R{};});
     }
 }
 

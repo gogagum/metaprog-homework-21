@@ -259,16 +259,11 @@ int main() {
 
     testLvalueLogger(); // will likely trigger SBO
     testLvalueLogger<256>(); // will likely not trigger SBO
-
+    
     testFunctionPointer();
-
-
-    //checkIncrementor();
-    //checkVectorHolder();
-
-
-
-
+    
+    checkIncrementor();
+    checkVectorHolder();
 
     return 0;
 }
