@@ -134,6 +134,7 @@ auto toTupleImpl(const T& value) {
     GENERATE_LINE(116)
     GENERATE_LINE(117)
     GENERATE_LINE(118)
+    #undef GENERATE_LINE
     return std::tie();
 }
 
