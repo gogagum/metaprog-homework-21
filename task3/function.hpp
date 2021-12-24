@@ -103,7 +103,6 @@ requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
      && std::copyable<F>
 Function<R(Args...)>::Function(const F& f) {
     using Func = std::remove_cvref_t<F>;
-    // Call destructor, if needed.
     if constexpr (std::is_same_v<Func, R(*)(Args...)>) {
         copyFromFunctionPointerImpl(f);
     } else {
@@ -147,13 +146,9 @@ Function<R(Args...)>::Function(F&& f) noexcept {
 //----------------------------------------------------------------------------//
 template <class R, class... Args>
 Function<R(Args...)>::Function(Function<R(Args...)>&& other) noexcept {
-    data_ = other.table_.copy_(data_);
-    other.data_ = nullptr;
-
+    data_ = std::move(other.data_);
     call_ = std::move(other.call_);
     table_ = std::move(other.table_);
-
-    other.table_.dtor_ = nullptr;
 }
 
 //----------------------------------------------------------------------------//
@@ -169,15 +164,11 @@ Function<R(Args...)>::operator=(Function&& other) noexcept {
         table_.dtor_ = nullptr;
     }
 
-    data_ = other.table_.copy_(other.data_);
-    other.data_ = nullptr;
-
+    data_ = std::move(other.data_);
     call_ = std::move(other.call_);
     table_ = std::move(other.table_);
 
-    if (&other != this) {
-        other.table_.dtor_ = nullptr;
-    }
+    other.table_.dtor_ = nullptr;
 
     return *this;
 }
