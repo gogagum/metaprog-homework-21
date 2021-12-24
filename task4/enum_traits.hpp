@@ -135,9 +135,6 @@ StructWithEnumElementParameter<enumElement>::getNameImpl() noexcept {
 #elif defined(__GNUC__) || defined(__GNUG__)
     constexpr auto start = fullFuncName.find("enumElement = ") + 13;
     constexpr auto finish = fullFuncName.find("; std::string_view");
-    if constexpr (*(fullFuncName.begin() + start + 1) == '(') {
-        return std::string_view{};
-    }
 #endif
     return std::string_view{ fullFuncName.begin() + start + 1, fullFuncName.begin() + finish };
 }
