@@ -16,6 +16,9 @@ class Function;
 template<class R, class... Args>
 class Function<R(Args...)>
 {
+  constexpr static std::size_t SMALL_BUFFER_SIZE = 64;
+  constexpr static std::size_t ALIGN = 16;
+
   using FuncPtr = R(*)(void*, Args...);
 
   struct InvokeTable {
