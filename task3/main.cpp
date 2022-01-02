@@ -3,8 +3,6 @@
 #include "commons_assert.hpp"
 
 #include <vector>
-#include <iostream>
-#include <memory>
 
 namespace mpg::detail {
 
@@ -54,8 +52,8 @@ struct Counter : public mpg::Operations<options> {
       return x > 0;
   }
 
-  Counter(int x) :x(x) {}
-  Counter() {}
+  explicit Counter(int x) : x(x) {}
+  Counter() = default;
 };
 
 }
@@ -221,9 +219,9 @@ struct CounterIncrementer {
 
 struct VectorHolder {
   VectorHolder() = delete;
-  VectorHolder(std::vector<long  long>* vPtr) : longs(vPtr) {};
+  explicit VectorHolder(std::vector<long  long>* vPtr) : longs(vPtr) {};
 
-  void operator()() {
+  void operator()() const {
       longs->push_back(counter);
   }
   std::vector<long long>* longs;
@@ -235,7 +233,7 @@ void checkIncrementor() {
     Function<void(void)> f = Function<void(void)>(inc);
     f();
     assert(counter == 1);
-};
+}
 
 void checkVectorHolder() {
     std::vector<long long> v;
