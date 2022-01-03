@@ -18,6 +18,8 @@ class Function<R(Args...)>
 private:
     using FuncPtr = R(*)(Args...);
 
+    using CallT = R(*)(void*, Args...);
+
     struct InvokeTable {
       using DestructorT = void(*)(void*);
       using CopyFuncT = void*(*)(void*);
@@ -32,84 +34,105 @@ public:
      */
     Function();
 
+    /**
+     * Constructor from functional object.
+     * @tparam F functional object type.
+     * @param f functional object.
+     */
     template<class F>
-    requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
     explicit Function(const F& f);
 
+    /**
+     * Copy constructor from other function.
+     * @param other function.
+     */
     Function(const Function<R(Args...)>& other);
 
-    // && constructors
+    /**
+     * Move-constructor from movable functional object.
+     * @tparam F functional object type.
+     * @param f functional object.
+     */
     template<class F>
-    requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
+    requires (!std::same_as<F, Function<R(Args...)>>) && std::movable<F>
     explicit Function(F&& f) noexcept;
 
+    /**
+     * Move constructor from other function.
+     * @param other function.
+     */
     Function(Function<R(Args...)>&& other) noexcept = default;
 
-    // & assiqnment
+    /**                                                                         
+     * Copy assignment.                                                         
+     * @tparam F functional object type.                                        
+     * @param f functional object.
+     * @return reference to self.
+     */
     template<class F>
-    requires (!std::same_as<std::remove_cvref_t<F>, Function>)
-          && std::copyable<F>
-    Function& operator=(const F& f);
+    Function<R(Args...)>& operator=(const F& f);
 
-    Function& operator=(const Function& other);
-    //\ & assignment
+    /**
+     * Copy assignment from other function.
+     * @param other function.
+     * @return reference to self.
+     */
+    Function<R(Args...)>& operator=(const Function<R(Args...)>& other);
 
-    // && assignment
-    Function& operator=(Function&& other) noexcept;
+    /**
+     * Move assignment from other function.
+     * @param other function.
+     * @return reference to self.
+     */
+    Function<R(Args...)>& operator=(Function<R(Args...)>&& other) noexcept;
 
+    /**
+     * Move assgnment from movable functional object.
+     * @tparam F functional object type
+     * @param f functional object.
+     * @return reference to self.
+     */
     template<class F>
     requires (!std::same_as<std::remove_cvref_t<F>, Function>) && std::movable<F>
-    Function& operator=(F&& f) noexcept;
-    //\ && assignment
+    Function<R(Args...)>& operator=(F&& f) noexcept;
 
+    /**
+     * Call operator.
+     * @param args arguments.
+     * @return result of function.
+     */
     R operator()(Args... args);
 
+    /**
+     * Destructor.
+     */
     ~Function();
 
-    void copyFromFunctionPointerImpl(R(*ptr)(Args...)) {
-        data_ = (void*)ptr;
-        call_ = callToFuncPtr;
-        table_.dtor_ = nullptr;
-        table_.copy_ = +[](void* self) -> void* { return self; };
-    }
+private:
+
+    void copyFromFunctionPointerImpl(R(*ptr)(Args...));
 
     template<class F>
-    void copyFromFunctionalObj(F* func) {
-        data_ = new F(*static_cast<F*>(func));
-        call_ = callByOperator<F>;
-        table_.dtor_ = deleteImpl<F>;
-        table_.copy_ = copyWithNewAllocation<F>;
-    }
+    void copyFromFunctionalObj(F* func);
 
-private:
     template<class Func>
-    static R callByOperator(void* self, Args... args) {
-        return static_cast<Func*>(self)->operator()(args...);
-    }
+    static R callByOperator(void* self, Args... args);
+
+    static R callToFuncPtr(void* self, Args... args);
 
     template<class F>
-    static void deleteImpl(void* self) {
-        delete static_cast<F*>(self);
-    }
+    static void deleteImpl(void* self);
 
     template<class F>
-    static void* copyWithNewAllocation(void* self) {
-        return new F(*static_cast<F*>(self));
-    }
+    static void* copyWithNewAllocation(void* self);
 
-    static R callToFuncPtr(void* self, Args... args) {
-        return reinterpret_cast<R(*)(Args...)>(self)(args...);
-    }
+    template<class F>
+    static void* moveCopy(void* self);
 
-    void callDtorImpl() {
-        if (table_.dtor_) {
-            table_.dtor_(data_);
-        }
-    }
+    void callDtorImpl();
 
 private:
-    
-    R(*call_)(void*, Args...) { nullptr };
+    CallT call_{ nullptr };
     InvokeTable table_;
     void* data_;
 };
@@ -118,7 +141,6 @@ private:
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
 template<class F>
-requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
 Function<R(Args...)>::Function(const F& f) {
     using Func = std::remove_cvref_t<F>;
     if constexpr (std::is_same_v<Func, R(*)(Args...)>) {
@@ -130,7 +152,7 @@ Function<R(Args...)>::Function(const F& f) {
 
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
-Function<R(Args...)>::Function(const Function &other) {
+Function<R(Args...)>::Function(const Function<R(Args...)> &other) {
     data_ = other.table_.copy_(other.data_);
     call_ = other.call_;
     table_.dtor_ = other.table_.dtor_;
@@ -140,18 +162,14 @@ Function<R(Args...)>::Function(const Function &other) {
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
 template<class F>
-requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
+requires (!std::same_as<F, Function<R(Args...)>>) && std::movable<F>
 Function<R(Args...)>::Function(F&& f) noexcept {
     using Func = std::remove_cvref_t<F>;
 
     data_ = new Func(std::forward<Func>(f));
-
     call_ = callByOperator<Func>;
     table_.dtor_ = deleteImpl<Func>;
-    table_.copy_ =
-        +[](void* self) -> void* {
-            return new Func(std::forward<Func>(*static_cast<F*>(self)));
-        };
+    table_.copy_ = moveCopy<Func>;
 }
 
 //----------------------------------------------------------------------------//
@@ -175,10 +193,7 @@ Function<R(Args...)>::operator=(Function<R(Args...)>&& other) noexcept {
 //----------------------------------------------------------------------------//
 template<class R, class... Args>
 template<class F>
-requires (!std::same_as<std::remove_cvref_t<F>, Function<R(Args...)>>)
-       && std::copyable<F>
-Function<R(Args...)>&
-Function<R(Args...)>::operator=(const F& f) {
+Function<R(Args...)>& Function<R(Args...)>::operator=(const F& f) {
     using Func = std::remove_cvref_t<F>;
 
     callDtorImpl();
@@ -210,10 +225,7 @@ Function<R(Args...)>::operator=(F&& f) noexcept {
         data_ = new Func(std::forward<F>(f));
         call_ = callByOperator<Func>;
         table_.dtor_ = deleteImpl<Func>;
-        table_.copy_ =
-            +[](void* self) -> void* {
-                return new Func(std::forward<Func>(*static_cast<Func*>(self)));
-            };
+        table_.copy_ = moveCopy<Func>;
     }
     return *this;
 }
@@ -241,7 +253,6 @@ Function<R(Args...)>::operator=(const Function<R(Args...)>& other) {
     callDtorImpl();
 
     data_ = other.table_.copy_(other.data_);
-
     call_ = other.call_;
     table_ = other.table_;
 
@@ -255,6 +266,67 @@ Function<R(Args...)>::Function() {
         copyFromFunctionPointerImpl(+[](Args...) -> void { });
     } else {
         copyFromFunctionPointerImpl(+[](Args...) -> R { return R{}; });
+    }
+}
+
+//----------------------------------------------------------------------------//
+template<class R, class... Args>
+void Function<R(Args...)>::copyFromFunctionPointerImpl(R (*ptr)(Args...)) {
+    data_ = (void*)ptr;
+    call_ = callToFuncPtr;
+    table_.dtor_ = nullptr;
+    table_.copy_ = +[](void* self) -> void* { return self; };
+}
+
+//----------------------------------------------------------------------------//
+template<class R, class... Args>
+template<class F>
+void Function<R(Args...)>::copyFromFunctionalObj(F *func) {
+    data_ = new F(*static_cast<F*>(func));
+    call_ = callByOperator<F>;
+    table_.dtor_ = deleteImpl<F>;
+    table_.copy_ = copyWithNewAllocation<F>;
+}
+
+//----------------------------------------------------------------------------//
+template<class R, class... Args>
+R Function<R(Args...)>::callToFuncPtr(void *self, Args... args) {
+    return reinterpret_cast<R(*)(Args...)>(self)(args...);
+}
+
+//----------------------------------------------------------------------------//
+template<class R, class... Args>
+template<class Func>
+R Function<R(Args...)>::callByOperator(void *self, Args... args) {
+    return static_cast<Func*>(self)->operator()(args...);
+}
+
+//----------------------------------------------------------------------------//
+template<class R, class... Args>
+template<class F>
+void Function<R(Args...)>::deleteImpl(void *self) {
+    delete static_cast<F*>(self);
+}
+
+//----------------------------------------------------------------------------//
+template<class R, class... Args>
+template<class F>
+void *Function<R(Args...)>::copyWithNewAllocation(void *self) {
+    return new F(*static_cast<F*>(self));
+}
+
+//----------------------------------------------------------------------------//
+template<class R, class... Args>
+template<class F>
+void *Function<R(Args...)>::moveCopy(void *self) {
+    return new F(std::move(*static_cast<F*>(self)));
+}
+
+//----------------------------------------------------------------------------//
+template<class R, class... Args>
+void Function<R(Args...)>::callDtorImpl() {
+    if (table_.dtor_) {
+        table_.dtor_(data_);
     }
 }
 

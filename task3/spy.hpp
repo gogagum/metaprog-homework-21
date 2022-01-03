@@ -158,9 +158,8 @@ template<std::invocable<unsigned int> Logger>
 requires (!std::copyable<T>)
       && MoveOnly<Logger>
       && std::is_nothrow_destructible_v<Logger>
-void Spy<T>::setLogger(Logger && logger)
-noexcept  {
-f_ = std::forward<Logger>(logger);
+void Spy<T>::setLogger(Logger&& logger) noexcept {
+    f_ = std::move(logger);
 }
 
 
