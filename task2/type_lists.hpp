@@ -2,6 +2,9 @@
 // Created by gogagum on 30.10.2021.
 //
 
+#pragma ide diagnostic ignored "OCUnusedConceptInspection"
+#pragma ide diagnostic ignored "OCUnusedStructInspection"
+#pragma ide diagnostic ignored "OCUnusedTypeAliasInspection"
 #ifndef TYPE_LISTS_HPP_
 #define TYPE_LISTS_HPP_
 
@@ -11,7 +14,7 @@ namespace TypeTuples {
 /*
 * struct TTuple
 */
-template<class... Ts>
+template<class...>
 struct TTuple {};
 }
 
@@ -64,17 +67,17 @@ namespace Impl{
 
     template <std::size_t N, typename FirstType, typename... OtherTypes>
     struct GetFromTTupleImpl<N, TypeTuples::TTuple<FirstType, OtherTypes...>> {
-        using Ret[[maybe_unused]] = typename GetFromTTupleImpl<N - 1, TypeTuples::TTuple<OtherTypes...>>::Ret;
+        using Ret = typename GetFromTTupleImpl<N - 1, TypeTuples::TTuple<OtherTypes...>>::Ret;
     };
 
     template <typename FirstType, typename... OtherTypes>
     struct GetFromTTupleImpl<0, TypeTuples::TTuple<FirstType, OtherTypes...>> {
-        using Ret[[maybe_unused]] = FirstType;
+        using Ret = FirstType;
     };
 
     template <typename OnlyType>
     struct GetFromTTupleImpl<0, TypeTuples::TTuple<OnlyType>> {
-        using Ret[[maybe_unused]] = OnlyType;
+        using Ret = OnlyType;
     };
 
     /*
@@ -85,22 +88,22 @@ namespace Impl{
 
     template <std::size_t N, typename FirstType, typename... OtherTypes>
     struct GetFromTTupleWithErrorReturnImpl<N, TypeTuples::TTuple<FirstType, OtherTypes...>> {
-        using Ret[[maybe_unused]] = typename GetFromTTupleWithErrorReturnImpl<N - 1, TypeTuples::TTuple<OtherTypes...>>::Ret;
+        using Ret = typename GetFromTTupleWithErrorReturnImpl<N - 1, TypeTuples::TTuple<OtherTypes...>>::Ret;
     };
 
     template <typename FirstType, typename... TTupleTypes>
     struct GetFromTTupleWithErrorReturnImpl<0, TypeTuples::TTuple<FirstType, TTupleTypes...>> {
-        using Ret[[maybe_unused]] = FirstType;
+        using Ret = FirstType;
     };
 
     template <std::size_t N, typename OnlyType>
     struct GetFromTTupleWithErrorReturnImpl<N, TypeTuples::TTuple<OnlyType>> {
-        using Ret[[maybe_unused]] = ErrorReturn;
+        using Ret = ErrorReturn;
     };
 
     template <typename OnlyType>
     struct GetFromTTupleWithErrorReturnImpl<0, TypeTuples::TTuple<OnlyType>> {
-        using Ret[[maybe_unused]] = OnlyType;
+        using Ret = OnlyType;
     };
 
     template <std::size_t N, TypeList TL>
@@ -108,12 +111,12 @@ namespace Impl{
 
     template <std::size_t N, TypeSequence TS>
     struct GetFromTypeListImpl<N, TS> {
-        using Ret[[maybe_unused]] = typename GetFromTypeListImpl<N - 1, typename TS::Tail>::Ret;
+        using Ret = typename GetFromTypeListImpl<N - 1, typename TS::Tail>::Ret;
     };
 
     template <TypeSequence TS>
     struct GetFromTypeListImpl<0, TS> {
-        using Ret[[maybe_unused]] = typename TS::Head;
+        using Ret = typename TS::Head;
     };
 
     template <std::size_t N, TypeList TL>
@@ -121,17 +124,17 @@ namespace Impl{
 
     template <std::size_t N, TypeSequence TS>
     struct GetFromTypeListWithErrorReturnImpl<N, TS> {
-        using Ret[[maybe_unused]] = typename GetFromTypeListWithErrorReturnImpl<N - 1, typename TS::Tail>::Ret;
+        using Ret = typename GetFromTypeListWithErrorReturnImpl<N - 1, typename TS::Tail>::Ret;
     };
 
     template <TypeSequence TS>
     struct GetFromTypeListWithErrorReturnImpl<0, TS> {
-        using Ret[[maybe_unused]] = typename TS::Head;
+        using Ret = typename TS::Head;
     };
 
     template <std::size_t N, Empty TE>
     struct GetFromTypeListWithErrorReturnImpl<N, TE> {
-        using Ret[[maybe_unused]] = ErrorReturn;
+        using Ret = ErrorReturn;
     };
 
     template <typename Added, class TypeTuple>
@@ -139,7 +142,7 @@ namespace Impl{
 
     template <typename Added, typename... TTupleTypes>
     struct TTupleConsImpl<Added, TypeTuples::TTuple<TTupleTypes...>> {
-        using Ret[[maybe_unused]] = TypeTuples::TTuple<Added, TTupleTypes...>;
+        using Ret = TypeTuples::TTuple<Added, TTupleTypes...>;
     };
 
     /*
@@ -156,12 +159,12 @@ namespace Impl{
         using OtherParams = typename ConvertToTypeTupleImpl<typename TS::Tail>::Ret;
         using FirstParam = typename TS::Head;
     public:
-        using Ret[[maybe_unused]] = typename TTupleConsImpl<FirstParam , OtherParams>::Ret;
+        using Ret = typename TTupleConsImpl<FirstParam , OtherParams>::Ret;
     };
 
     template <Empty TE>
     struct ConvertToTypeTupleImpl<TE> {
-        using Ret[[maybe_unused]] = TypeTuples::TTuple<>;
+        using Ret = TypeTuples::TTuple<>;
     };
 
     template <template <typename> class P, TypeList TL>
@@ -192,12 +195,12 @@ namespace Impl{
         using Ret = Nil;
     };
 
-    template <template <typename Arg> class P, TypeList TL>
+    template <template<typename> class P, TypeList TL>
     struct FilterImpl{
         using Ret = Nil;
     };
 
-    template <template <typename> class P, TypeSequence TS>
+    template <template<typename> class P, TypeSequence TS>
     struct FilterImpl<P, TS> {
     private:
         template <typename T>
@@ -398,10 +401,10 @@ struct Replicate<0, T> : Nil {};
  * ----------
  * Apply F to all types of TypeList TL.
  */
-template <template<typename T> class F, TypeList TL>
+template <template<typename> class F, TypeList TL>
 struct Map : public Nil {};
 
-template <template<typename T> class F, TypeSequence TS>
+template <template<typename> class F, TypeSequence TS>
 struct Map<F, TS> {
     using Head = F<typename TS::Head>;
     using Tail = Map<F, typename TS::Tail>;
@@ -428,7 +431,7 @@ using Filter = typename Impl::FilterImpl<P, TL>::Ret;
  * -------------
  * T, F<T>, F<F<T>>...
  */
-template <template <typename Arg> class F, class T>
+template <template<typename> class F, class T>
 struct Iterate {
   using Head = T;
   using Tail = Iterate<F, F<T>>;
@@ -446,13 +449,13 @@ struct Cycle<TS>{
   template <TypeList CurrTL>
   struct CycleImpl {
     using Head = typename TS::Head;
-    using Tail [[maybe_unused]] = typename CycleImpl<TS>::Tail;
+    using Tail = typename CycleImpl<TS>::Tail;
   };
 
   template <TypeSequence CurrTL>
   struct CycleImpl<CurrTL>{
     using Head = typename CurrTL::Head;
-    using Tail [[maybe_unused]] = CycleImpl<typename CurrTL::Tail>;
+    using Tail = CycleImpl<typename CurrTL::Tail>;
   };
 
   using CycleRet = CycleImpl<TS>;
@@ -514,10 +517,10 @@ struct Tails<TS> {
 /*
  * Scanl
  */
-template <template <class Arg1, class Arg2> class OP, typename T, TypeList TL>
+template <template <class, class> class OP, typename T, TypeList TL>
 struct Scanl : public Nil {};
 
-template <template <class Arg1, class Arg2> class OP, typename T, TypeSequence TS>
+template <template <class, class> class OP, typename T, TypeSequence TS>
 struct Scanl<OP, T, TS> {
  private:
   template <class First, class Second, TypeList TL_>
@@ -556,7 +559,7 @@ struct FoldlImpl<OP, T, TS> {
       typename FoldlImpl<OP, OP<T, typename TS::Head>, typename TS::Tail>::Ret;
 };
 
-template <template <class Arg1, class Arg2> class OP, typename T, TypeList TL>
+template <template <class, class> class OP, typename T, TypeList TL>
 using Foldl = typename FoldlImpl<OP, T, TL>::Ret;
 
 /*
@@ -598,9 +601,9 @@ template <TypeSequence TS, TypeSequence ZippedOthers, TypeList FirstOfOthers, Ty
 struct Zip2ListImpl<TS, ZippedOthers, FirstOfOthers, Others...> {
   using ZippedOthers_ = Zip2ListImpl<FirstOfOthers, Zip2List<Others...>, Others...>;
 
-  using Head [[maybe_unused]] = Cons<typename TS::Head,
+  using Head = Cons<typename TS::Head,
                     typename ZippedOthers_::Head>;
-  using Tail [[maybe_unused]] = Zip2List<typename TS::Tail,
+  using Tail = Zip2List<typename TS::Tail,
                    typename FirstOfOthers::Tail,
                    typename Others::Tail...>;
 };
@@ -621,10 +624,9 @@ struct Zip2ListImpl<TS, ZippedOthers, FirstOfOthers, SecondOfOthers> {
 
 template <TypeSequence TS, TypeSequence ZippedOthers, TypeSequence OnlyOfOthers>
 struct Zip2ListImpl<TS, ZippedOthers, OnlyOfOthers> {
-  using Head [[maybe_unused]] = Cons<typename TS::Head,
+  using Head = Cons<typename TS::Head,
                                      typename ZippedOthers::Head>;
-  using Tail [[maybe_unused]] = Zip2List<typename TS::Tail,
-                                         typename OnlyOfOthers::Tail>;
+  using Tail = Zip2List<typename TS::Tail, typename OnlyOfOthers::Tail>;
 };
 
 template <TypeSequence TS, TypeList... TLs>
@@ -632,8 +634,8 @@ struct Zip2List<TS, TLs...> : Zip2ListImpl<TS, Zip2List<TLs...>, TLs...>{};
 
 template <TypeSequence TS>
 struct Zip2List<TS>{
-  using Head [[maybe_unused]] = Cons<typename TS::Head, Nil>;
-  using Tail [[maybe_unused]] = Zip2List<typename TS::Tail>;
+  using Head = Cons<typename TS::Head, Nil>;
+  using Tail = Zip2List<typename TS::Tail>;
 };
 
 /*
