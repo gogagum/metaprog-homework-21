@@ -9,10 +9,10 @@
 
 #include "../type_lists_concepts.hpp"
 #include "../type_tuples.hpp"
+#include "error_return.hpp"
 
 namespace TypeLists::Impl {
 
-    struct ErrorReturn {};
     /*
      * GetFromTTupleImpl<N, Types...>
      */

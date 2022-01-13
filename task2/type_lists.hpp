@@ -68,7 +68,7 @@ struct Concat<TE, TS> : public TS {};
  * Concat two type tuples - Added and TT.
  */
 template <typename Added, typename TT>
-using TTupleCons = typename Impl::TTupleConsImpl<Added, TT>::Ret;
+using TTupleCons = typename TypeTuples::TTupleCons<Added, TT>::Ret;
 
 
 template <TypeList TL>
@@ -78,7 +78,7 @@ using ToTuple = typename Impl::ConvertToTypeTupleImpl<TL>::Ret;
  * ConvertToTypeList
  */
 template <class TTupleInput>
-struct FromTuple;
+struct FromTuple : public Nil {};
 
 template <class TakenType, class... Other>
 struct FromTuple<TypeTuples::TTuple<TakenType, Other...>> {
@@ -91,9 +91,6 @@ struct FromTuple<TypeTuples::TTuple<LastType>> {
   using Head = LastType;
   using Tail = Nil;
 };
-
-template <>
-struct FromTuple<TypeTuples::TTuple<>> : public Nil {};
 
 /*
  * Cons<T, TL>
@@ -438,7 +435,9 @@ struct TakeWhileImpl<P, TS> {
 template <template<typename> class P, TypeList TL>
 using TakeWhile = typename TakeWhileImpl<P, TL>::Ret;
 
-
+/*
+ * GroupBy
+ */
 template <template<class, class> class Eq, TypeList TL>
 struct GroupBy : public Nil{};
 
