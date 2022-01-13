@@ -9,7 +9,7 @@
 #define TYPE_LISTS_HPP_
 
 #include <concepts>
-#include "type_lists_impl.hpp"
+#include "impl/type_lists_impl.hpp"
 #include "type_lists_concepts.hpp"
 #include "type_tuples.hpp"
 
@@ -151,26 +151,9 @@ concept TypeListOfLength = TypeList<TL> && LengthGreaterOrEqual<TL, len> && !Len
  * -----------
  * Take all except for first N types from TypeList TL.
  */
-template <std::size_t N, TypeList TL>
-struct DropImpl;
-
-template <TypeList TL>
-struct DropImpl<0, TL> {
-  using Ret = TL;
-};
-
-template <std::size_t N, Empty TE>
-struct DropImpl<N, TE> {
-  using Ret = Nil;
-};
-
-template <std::size_t N, TypeSequence TS>
-struct DropImpl<N, TS> {
-    using Ret = typename DropImpl<N - 1, typename TS::Tail>::Ret;
-};
 
 template <std::size_t N, TypeList TL>
-using Drop = typename DropImpl<N, TL>::Ret;
+using Drop = typename Impl::DropImpl<N, TL>::Ret;
 
 /*
  * Replicate<N, T>
@@ -333,24 +316,11 @@ struct Scanl<OP, T, TS> {
   using Tail = typename ImplResult::Tail;
 };
 
-
 /*
  * Foldl
  */
-
-template <template <typename, typename> class OP, typename T, TypeList TL>
-struct FoldlImpl {
-  using Ret = T;
-};
-
-template <template<typename, typename> class OP, typename T, TypeSequence TS>
-struct FoldlImpl<OP, T, TS> {
-  using Ret =
-      typename FoldlImpl<OP, OP<T, typename TS::Head>, typename TS::Tail>::Ret;
-};
-
 template <template <class, class> class OP, typename T, TypeList TL>
-using Foldl = typename FoldlImpl<OP, T, TL>::Ret;
+using Foldl = typename Impl::FoldlImpl<OP, T, TL>::Ret;
 
 /*
  * Zip22Lists, zip with every pair as TypeList
@@ -389,8 +359,9 @@ struct Zip2ListImpl : Nil {};
 
 template <TypeSequence TS, TypeSequence ZippedOthers, TypeList FirstOfOthers, TypeList... Others>
 struct Zip2ListImpl<TS, ZippedOthers, FirstOfOthers, Others...> {
+private:
   using ZippedOthers_ = Zip2ListImpl<FirstOfOthers, Zip2List<Others...>, Others...>;
-
+public:
   using Head = Cons<typename TS::Head,
                     typename ZippedOthers_::Head>;
   using Tail = Zip2List<typename TS::Tail,

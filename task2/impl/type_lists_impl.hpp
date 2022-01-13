@@ -3,18 +3,18 @@
 //
 
 #pragma clang diagnostic push
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedStructInspection"
 #pragma ide diagnostic ignored "OCUnusedTypeAliasInspection"
 #ifndef TYPE_LISTS_IMPL_HPP_
 #define TYPE_LISTS_IMPL_HPP_
 
 #include <cstddef>
-#include "type_tuples.hpp"
-#include "type_lists_concepts.hpp"
+#include "get_from_ttuple.hpp"
+#include "../type_tuples.hpp"
+#include "../type_lists_concepts.hpp"
 
 namespace TypeLists::Impl{
-
-struct ErrorReturn {};
-
 /*
  * ApplyLogicNotToValue
  * --------------------
@@ -23,53 +23,6 @@ struct ErrorReturn {};
 template <class P>
 struct ApplyLogicNotToValue {
     const static bool Value = !P::Value;
-};
-
-/*
- * GetFromTTupleImpl<N, Types...>
- */
-template <std::size_t N, typename... Types>
-struct GetFromTTupleImpl;
-
-template <std::size_t N, typename FirstType, typename... OtherTypes>
-struct GetFromTTupleImpl<N, TypeTuples::TTuple<FirstType, OtherTypes...>> {
-    using Ret = typename GetFromTTupleImpl<N - 1, TypeTuples::TTuple<OtherTypes...>>::Ret;
-};
-
-template <typename FirstType, typename... OtherTypes>
-struct GetFromTTupleImpl<0, TypeTuples::TTuple<FirstType, OtherTypes...>> {
-    using Ret = FirstType;
-};
-
-template <typename OnlyType>
-struct GetFromTTupleImpl<0, TypeTuples::TTuple<OnlyType>> {
-using Ret = OnlyType;
-};
-
-/*
- * GetFromTTupleWithErrorReturnImpl<N, Types...>
- */
-template <std::size_t N, typename... Types>
-struct GetFromTTupleWithErrorReturnImpl;
-
-template <std::size_t N, typename FirstType, typename... OtherTypes>
-struct GetFromTTupleWithErrorReturnImpl<N, TypeTuples::TTuple<FirstType, OtherTypes...>> {
-using Ret = typename GetFromTTupleWithErrorReturnImpl<N - 1, TypeTuples::TTuple<OtherTypes...>>::Ret;
-};
-
-template <typename FirstType, typename... TTupleTypes>
-struct GetFromTTupleWithErrorReturnImpl<0, TypeTuples::TTuple<FirstType, TTupleTypes...>> {
-using Ret = FirstType;
-};
-
-template <std::size_t N, typename OnlyType>
-struct GetFromTTupleWithErrorReturnImpl<N, TypeTuples::TTuple<OnlyType>> {
-using Ret = ErrorReturn;
-};
-
-template <typename OnlyType>
-struct GetFromTTupleWithErrorReturnImpl<0, TypeTuples::TTuple<OnlyType>> {
-using Ret = OnlyType;
 };
 
 template <std::size_t N, TypeList TL>
@@ -189,7 +142,38 @@ public:
     using Ret = AfterSkip<Skipped>;
 };
 
-}  // namespace TypeLists
+template <std::size_t N, TypeList TL>
+struct DropImpl;
+
+template <TypeList TL>
+struct DropImpl<0, TL> {
+    using Ret = TL;
+};
+
+template <std::size_t N, Empty TE>
+struct DropImpl<N, TE> {
+    using Ret = Nil;
+};
+
+template <std::size_t N, TypeSequence TS>
+struct DropImpl<N, TS> {
+    using Ret = typename DropImpl<N - 1, typename TS::Tail>::Ret;
+};
+
+
+template <template <typename, typename> class OP, typename T, TypeList TL>
+struct FoldlImpl {
+    using Ret = T;
+};
+
+template <template<typename, typename> class OP, typename T, TypeSequence TS>
+struct FoldlImpl<OP, T, TS> {
+    using Ret =
+    typename FoldlImpl<OP, OP<T, typename TS::Head>, typename TS::Tail>::Ret;
+};
+
+
+}  // namespace TypeLists::Impl
 
 
 #endif // TYPE_LISTS_IMPL_HPP_
