@@ -14,5 +14,6 @@
 #include "foldl.hpp"
 #include "scanl.hpp"
 #include "take_while.hpp"
+#include "zip_to_list.hpp"
 
 #endif // TYPE_LISTS_IMPL_HPP_

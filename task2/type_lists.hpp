@@ -15,6 +15,9 @@
 #include "src/inits.hpp"
 #include "src/take.hpp"
 #include "src/cycle.hpp"
+#include "src/cons.hpp"
+#include "src/zip2_to_lists.hpp"
+#include "src/map.hpp"
 
 namespace TypeLists {
 
@@ -51,21 +54,6 @@ template <std::size_t N, TypeList TL>
 using GetFromTypeListWithErrorReturn = typename Impl::GetFromTypeListWithErrorReturnImpl<N, TL>::Ret;
 
 /*
- * Concat
- */
-template <TypeList TL1, TypeList TL2>
-struct Concat : public Nil {};
-
-template <TypeSequence TS, TypeList TL>
-struct Concat<TS, TL> {
-  using Head = typename TS::Head;
-  using Tail = Concat<typename TS::Tail, TL>;
-};
-
-template <Empty TE, TypeSequence TS>
-struct Concat<TE, TS> : public TS {};
-
-/*
  * TTupleCons<Added, TT>
  * ---------------------
  * Concat two type tuples - Added and TT.
@@ -93,17 +81,6 @@ template <class LastType>
 struct FromTuple<TypeTuples::TTuple<LastType>> {
   using Head = LastType;
   using Tail = Nil;
-};
-
-/*
- * Cons<T, TL>
- * -----------
- * Add element T into beginning of TypeList TL.
- */
-template <class T, TypeList TL>
-struct Cons {
-  using Head = T;
-  using Tail = TL;
 };
 
 /*
@@ -151,20 +128,6 @@ struct Replicate {
 
 template <typename T>
 struct Replicate<0, T> : Nil {};
-
-/*
- * Map<F, TL>
- * ----------
- * Apply F to all types of TypeList TL.
- */
-template <template<typename> class F, TypeList TL>
-struct Map : public Nil {};
-
-template <template<typename> class F, TypeSequence TS>
-struct Map<F, TS> {
-    using Head = F<typename TS::Head>;
-    using Tail = Map<F, typename TS::Tail>;
-};
 
 /*
  * SkipWhile<P, TL>
@@ -221,19 +184,6 @@ template <template <class, class> class OP, typename T, TypeList TL>
 using Foldl = typename Impl::FoldlImpl<OP, T, TL>::Ret;
 
 /*
- * Zip22Lists, zip with every pair as TypeList
- */
-
-template <TypeList TL1, TypeList TL2>
-struct Zip22Lists : public Nil {};
-
-template <TypeSequence TS1, TypeSequence TS2>
-struct Zip22Lists<TS1, TS2> {
-  using Head = FromTuple<TypeTuples::TTuple<typename TS1::Head, typename TS2::Head>>;
-  using Tail = Zip22Lists<typename TS1::Tail, typename TS2::Tail>;
-};
-
-/*
  * Zip2
  */
 template <TypeList TL1, TypeList TL2>
@@ -252,43 +202,8 @@ struct Zip2<TS1, TS2> {
 template <TypeList... TLs>
 struct Zip2List : Nil {};
 
-template <TypeSequence TS, TypeList ZippedOthers, TypeList... Others>
-struct Zip2ListImpl : Nil {};
-
-template <TypeSequence TS, TypeSequence ZippedOthers, TypeList FirstOfOthers, TypeList... Others>
-struct Zip2ListImpl<TS, ZippedOthers, FirstOfOthers, Others...> {
-private:
-  using ZippedOthers_ = Zip2ListImpl<FirstOfOthers, Zip2List<Others...>, Others...>;
-public:
-  using Head = Cons<typename TS::Head,
-                    typename ZippedOthers_::Head>;
-  using Tail = Zip2List<typename TS::Tail,
-                        typename FirstOfOthers::Tail,
-                        typename Others::Tail...>;
-};
-
-template <TypeSequence TS,
-          TypeSequence ZippedOthers,
-          TypeList FirstOfOthers,
-          TypeList SecondOfOthers>
-struct Zip2ListImpl<TS, ZippedOthers, FirstOfOthers, SecondOfOthers> {
-  using ZippedOthers_ = Zip2ListImpl<FirstOfOthers, Zip2List<SecondOfOthers>, SecondOfOthers>;
-
-  using Head = Cons<typename TS::Head,
-                    typename ZippedOthers_::Head>;
-  using Tail = Zip2List<typename TS::Tail,
-                        typename FirstOfOthers::Tail,
-                        typename SecondOfOthers::Tail>;
-};
-
-template <TypeSequence TS, TypeSequence ZippedOthers, TypeSequence OnlyOfOthers>
-struct Zip2ListImpl<TS, ZippedOthers, OnlyOfOthers> {
-  using Head = Cons<typename TS::Head, typename ZippedOthers::Head>;
-  using Tail = Zip2List<typename TS::Tail, typename OnlyOfOthers::Tail>;
-};
-
 template <TypeSequence TS, TypeList... TLs>
-struct Zip2List<TS, TLs...> : Zip2ListImpl<TS, Zip2List<TLs...>, TLs...>{};
+struct Zip2List<TS, TLs...> : Impl::Zip2ListImpl<TS, Zip2List<TLs...>, TLs...>{};
 
 template <TypeSequence TS>
 struct Zip2List<TS>{
@@ -304,7 +219,7 @@ template <TypeList... TLs>
 using Zip = Map<ToTuple, Zip2List<TLs...>>;
 
 /*
- * GroupBy
+ * TakeWhile
  */
 template <template<typename> class P, TypeList TL>
 using TakeWhile = typename Impl::TakeWhileImpl<P, TL>::Ret;
