@@ -4,4 +4,4 @@ project(task2)
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(task2 main.cpp type_lists.hpp type_tuples.hpp type_lists_concepts.hpp impl/get_from_ttuple.hpp impl/get_from_typelist.hpp impl/error_return.hpp impl/convert_to_type_tuple.hpp impl/skip_while.hpp impl/filter.hpp impl/logic_not.hpp impl/drop.hpp impl/foldl.hpp)
+add_executable(task2 main.cpp type_lists.hpp type_tuples.hpp src/type_lists_concepts.hpp src/impl/get_from_ttuple.hpp src/impl/get_from_typelist.hpp src/impl/error_return.hpp src/impl/convert_to_type_tuple.hpp src/impl/skip_while.hpp src/impl/filter.hpp src/impl/logic_not.hpp src/impl/drop.hpp src/impl/foldl.hpp src/inits.hpp src/take.hpp src/cycle.hpp src/impl/scanl.hpp src/impl/take_while.hpp)

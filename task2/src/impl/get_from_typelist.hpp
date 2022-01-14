@@ -10,6 +10,11 @@
 #include "error_return.hpp"
 
 namespace TypeLists::Impl {
+    /**
+     * GetFromTypeList implementation.
+     * @tparam N - number of elements to skip.
+     * @tparam TL - current tail.
+     */
     template <std::size_t N, TypeList TL>
     struct GetFromTypeListImpl;
 
@@ -23,6 +28,11 @@ namespace TypeLists::Impl {
         using Ret = typename TS::Head;
     };
 
+    /**
+     * GetFromTypeListWithErrorReturn implementation.
+     * @tparam N - number of elements to skip.
+     * @tparam TL - current tail.
+     */
     template <std::size_t N, TypeList TL>
     struct GetFromTypeListWithErrorReturnImpl;
 

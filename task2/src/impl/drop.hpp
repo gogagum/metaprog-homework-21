@@ -8,17 +8,19 @@
 #include "../type_lists_concepts.hpp"
 
 namespace TypeLists::Impl {
+    /**
+     * DropImpl - implementation of Drop metafunction.
+     * @tparam N - current drop index.
+     * @tparam TL - current TypeList tail.
+     */
     template <std::size_t N, TypeList TL>
-    struct DropImpl;
+    struct DropImpl {
+        using Ret = Nil;
+    };
 
     template <TypeList TL>
     struct DropImpl<0, TL> {
         using Ret = TL;
-    };
-
-    template <std::size_t N, Empty TE>
-    struct DropImpl<N, TE> {
-        using Ret = Nil;
     };
 
     template <std::size_t N, TypeSequence TS>

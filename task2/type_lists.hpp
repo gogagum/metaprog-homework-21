@@ -9,9 +9,12 @@
 #define TYPE_LISTS_HPP_
 
 #include <concepts>
-#include "impl/type_lists_impl.hpp"
-#include "type_lists_concepts.hpp"
+#include "src/impl/type_lists_impl.hpp"
+#include "src/type_lists_concepts.hpp"
 #include "type_tuples.hpp"
+#include "src/inits.hpp"
+#include "src/take.hpp"
+#include "src/cycle.hpp"
 
 namespace TypeLists {
 
@@ -115,23 +118,6 @@ struct Repeat {
 };
 
 /*
- * Take<N, TL>
- * -----------
- * Take first N types from TypeList TL
- */
-template <std::size_t N, TypeList TL>
-struct Take {
-  using Head = typename TL::Head;
-  using Tail = Take<N-1, typename TL::Tail>;
-};
-
-template <std::size_t N, Empty TE>
-struct Take<N, TE> : public Nil {};
-
-template <TypeList TL>
-struct Take<0, TL> : public Nil {};
-
-/*
  * concept LengthGreaterOrEqual
  */
 template <typename TL, std::size_t len>
@@ -208,68 +194,6 @@ struct Iterate {
 };
 
 /*
- * Cycle
- */
-template <TypeList TL>
-struct Cycle : Nil {};
-
-template <TypeSequence TS>
-struct Cycle<TS>{
- private:
-  template <TypeList CurrTL>
-  struct CycleImpl {
-    using Head = typename TS::Head;
-    using Tail = typename CycleImpl<TS>::Tail;
-  };
-
-  template <TypeSequence CurrTL>
-  struct CycleImpl<CurrTL>{
-    using Head = typename CurrTL::Head;
-    using Tail = CycleImpl<typename CurrTL::Tail>;
-  };
-
-  using CycleRet = CycleImpl<TS>;
-
- public:
-
-  using Head = typename CycleRet::Head;
-  using Tail = typename CycleRet::Tail;
-};
-/*
- * Inits
- */
-template <TypeList TL>
-struct Inits {
-  using Head = Nil;
-  using Tail = Nil;
-};
-
-template <TypeSequence TS>
-struct Inits<TS> {
- private:
-
-  template <std::size_t N, TypeList Tail>
-  struct InitsImpl;
-
-  template <std::size_t N, Empty TE>
-  struct InitsImpl<N, TE> {
-      using Head = Take<N, TS>;
-      using Tail = Nil;
-  };
-
-  template <std::size_t N, TypeSequence TS_>
-  struct InitsImpl<N, TS_> {
-      using Head = Take<N, TS>;
-      using Tail = InitsImpl<N + 1, typename TS_::Tail>;
-  };
-
-  using InitsRet = InitsImpl<0, TS>;
- public:
-  using Head = typename InitsRet::Head;
-  using Tail = typename InitsRet::Tail;
-};
-
-/*
  * Tails
  */
 template <TypeList TL>
@@ -288,30 +212,7 @@ struct Tails<TS> {
  * Scanl
  */
 template <template <class, class> class OP, typename T, TypeList TL>
-struct Scanl : public Nil {};
-
-template <template <class, class> class OP, typename T, TypeSequence TS>
-struct Scanl<OP, T, TS> {
- private:
-  template <class First, class Second, TypeList TL_>
-  struct ScanlImpl;
-
-  template <class First, class Second, TypeSequence TS_>
-  struct ScanlImpl<First, Second, TS_> {
-    using Head = OP<First, Second>;
-    using Tail = ScanlImpl<Second, typename TS_::Head, typename TS_::Tail>;
-  };
-
-  template <class First, class Second, Empty TE>
-  struct ScanlImpl<First, Second, TE> {
-    using Head = OP<First, Second>;
-    using Tail = Nil;
-  };
-  using ImplResult = ScanlImpl<T, T, TS>;
- public:
-  using Head = typename ImplResult::Head;
-  using Tail = typename ImplResult::Tail;
-};
+using Scanl = typename Impl::ScanlImpl<OP, T, T, TL>;
 
 /*
  * Foldl
@@ -405,35 +306,8 @@ using Zip = Map<ToTuple, Zip2List<TLs...>>;
 /*
  * GroupBy
  */
-
-template<template<typename> class P, TypeList TL>
-struct TakeWhileImpl {
-  using Ret = Nil;
-};
-
-template<template<typename> class P, TypeSequence TS>
-struct TakeWhileImpl<P, TS> {
- private:
-  template<bool takeHead, typename _>
-  struct Decision {
-    using Ret = Nil;
-  };
-
-  template<typename _>
-  struct Decision<true, _> {
-    using Ret = Cons<typename TS::Head, typename TakeWhileImpl<P, typename TS::Tail>::Ret>;
-  };
-
-  template<typename _>
-  struct Decision<false, _>{
-    using Ret = Nil;
-  };
- public:
-  using Ret = typename Decision<P<typename TS::Head>::Value, Nil>::Ret;
-};
-
 template <template<typename> class P, TypeList TL>
-using TakeWhile = typename TakeWhileImpl<P, TL>::Ret;
+using TakeWhile = typename Impl::TakeWhileImpl<P, TL>::Ret;
 
 /*
  * GroupBy

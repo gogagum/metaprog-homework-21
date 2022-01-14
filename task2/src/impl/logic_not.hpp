@@ -6,10 +6,9 @@
 #define TASK2_LOGIC_NOT_HPP
 
 namespace TypeLists::Impl {
-    /*
-     * ApplyLogicNotToValue
-     * --------------------
-     * Value now is not value
+    /**
+     * ApplyLogicNotToValue - create negotiation template functor.
+     * @tparam P
      */
     template <class P>
     struct ApplyLogicNotToValue {

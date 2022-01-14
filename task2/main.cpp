@@ -1,6 +1,6 @@
 #include "type_lists.hpp"
-#include "commons_metafunctions.hpp"
-#include "commons_assert.hpp"
+#include "src/test_imports/commons_metafunctions.hpp"
+#include "src/test_imports/commons_assert.hpp"
 
 namespace Tests {
 
@@ -46,8 +46,8 @@ void checkSimpleOps() {
     static_assert(
         std::same_as
             < ToTuple< Cons<int, Cons<bool, Cons<float, Nil>>> >
-    , TTuple<int, bool, float>
-        >);
+            , TTuple<int, bool, float>
+            >);
 
     using TypeLists::FromTuple;
     static_assert(
@@ -66,13 +66,13 @@ void checkSimpleOps() {
     static_assert(
         std::same_as
             < ToTuple<Take<2, FromTuple<TTuple<int, bool, float, double>>>>
-        , TTuple<int, bool>
+            , TTuple<int, bool>
             >);
 
     static_assert(
         std::same_as
             < ToTuple<Take<0, FromTuple<TTuple<int, bool, float, double>>>>
-        , TTuple<>
+            , TTuple<>
             >);
 
     static_assert(
@@ -85,38 +85,39 @@ void checkSimpleOps() {
     static_assert(
         std::same_as
             < ToTuple<Drop<3, FromTuple<TTuple<float, int, float, int>>>>
-        , TTuple<int>
+            , TTuple<int>
             >);
 
     static_assert(
         std::same_as
             < ToTuple<Drop<0, FromTuple<TTuple<float, int, float, int>>>>
-        , TTuple<float, int, float, int>
+            , TTuple<float, int, float, int>
             >);
 
     static_assert(
         std::same_as
             < ToTuple<Drop<10, FromTuple<TTuple<float, int, float, int>>>>
-        , TTuple<>
+            , TTuple<>
             >);
 
     using TypeLists::Replicate;
     static_assert(
         std::same_as
             < ToTuple<Replicate<3, int>>
-        , TTuple<int, int, int>
+            , TTuple<int, int, int>
             >);
 
     using TypeLists::Iterate;
     static_assert(std::same_as
-                      < ToTuple<Take<4, Iterate<Starred, int>>>
-    , TTuple<int, int*, int**, int***>
-        >);
+                  < ToTuple<Take<4, Iterate<Starred, int>>>
+                  , TTuple<int, int*, int**, int***>
+                  >);
 
     using TypeLists::Cycle;
-    static_assert(std::same_as
-                      < ToTuple<Take<5, Cycle<FromTuple<TTuple<int, bool>>>>>
-    , TTuple<int, bool, int, bool, int>
+    static_assert(
+        std::same_as
+            < ToTuple<Take<5, Cycle<FromTuple<TTuple<int, bool>>>>>
+            , TTuple<int, bool, int, bool, int>
         >);
 
 }

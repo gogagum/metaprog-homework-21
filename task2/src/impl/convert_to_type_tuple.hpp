@@ -5,7 +5,7 @@
 #ifndef TASK2_CONVERT_TO_TYPE_TUPLE_HPP
 #define TASK2_CONVERT_TO_TYPE_TUPLE_HPP
 
-#include "../type_tuples.hpp"
+#include "../../type_tuples.hpp"
 #include "../type_lists_concepts.hpp"
 
 namespace TypeLists::Impl {
@@ -20,10 +20,10 @@ namespace TypeLists::Impl {
 
     template <TypeSequence TS>
     struct ConvertToTypeTupleImpl<TS> {
-    private:
+      private:
         using OtherParams = typename ConvertToTypeTupleImpl<typename TS::Tail>::Ret;
         using FirstParam = typename TS::Head;
-    public:
+      public:
         using Ret = typename TypeTuples::TTupleCons<FirstParam , OtherParams>::Ret;
     };
 }
