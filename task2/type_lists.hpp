@@ -172,6 +172,12 @@ struct Tails<TS> {
 };
 
 /*
+ * SkipEveryNth
+ */
+template <size_t n, TypeList TL>
+using SkipEveryNth = typename Impl::SkipEveryNthImpl<n, 0, TL>::Ret;
+
+/*
  * Scanl
  */
 template <template <class, class> class OP, typename T, TypeList TL>
@@ -282,8 +288,12 @@ struct LastTwoAdder {
 
 using Fib = TypeLists::Cons<ValueTag<0>, TypeLists::Cons<ValueTag<1>, LastTwoAdder<ValueTag<0>, ValueTag<1>>>>;
 
+//============================================================================//
+// PrimesImpl1                                                                //
+//============================================================================//
+
 template<TypeLists::TypeList TailNumbers>
-struct PrimesImpl{
+struct PrimesImpl1{
   template <typename VT>
   struct ToErase;
 
@@ -293,14 +303,60 @@ struct PrimesImpl{
   };
 
   using Head = typename TailNumbers::Head;
-  using Tail = PrimesImpl<TypeLists::Filter<ToErase, typename TailNumbers::Tail>>;
+  using Tail = PrimesImpl1<TypeLists::Filter<ToErase, typename TailNumbers::Tail>>;
 };
 
 template<TypeLists::Empty EmptyTail>
-struct PrimesImpl<EmptyTail> : public TypeLists::Nil {};
+struct PrimesImpl1<EmptyTail> : public TypeLists::Nil {};
+
+//============================================================================//
+
+
+//============================================================================//
+// PrimesImpl2                                                                //
+//============================================================================//
+
+template<typename V, TypeLists::TypeList ToCheck>
+struct CheckDeriv;
+
+template<auto V, TypeLists::TypeSequence TS>
+struct CheckDeriv<ValueTag<V>, TS> {
+    constexpr static bool Value = (V % TS::Head::Value == 0)
+                               || (CheckDeriv<ValueTag<V>, typename TS::Tail>::Value);
+};
+
+template<auto V, TypeLists::Empty TE>
+struct CheckDeriv<ValueTag<V>, TE> {
+    constexpr static bool Value = false;
+};
+
+template<TypeLists::TypeList CurrPrimes, TypeLists::TypeList CurrTail>
+struct PrimesImpl2 {
+private:
+    template<typename VT>
+    using ToSkip = CheckDeriv<VT, CurrPrimes>;
+    using Skipped = TypeLists::SkipWhile<ToSkip, CurrTail>;
+    using NewCurrPrimes = TypeLists::Cons<typename Skipped::Head, CurrPrimes>;
+public:
+    using Head = typename Skipped::Head;
+    using Tail = PrimesImpl2<NewCurrPrimes, typename Skipped::Tail>;
+};
+
+template<TypeLists::TypeList CurrPrimes, TypeLists::Empty CurrTail>
+struct PrimesImpl2<CurrPrimes, CurrTail> {
+    using Ret = TypeLists::Nil;
+};
+
 
 
 using Nats = TypeLists::Iterate<AddOne, ValueTag<0>>;
-using Primes = PrimesImpl<Nats::Tail::Tail>;
+
+#ifdef __INTEL_LLVM_COMPILER
+using Primes = PrimesImpl2<TypeLists::Nil, Nats::Tail::Tail>;
+#elif __clang__
+using Primes = PrimesImpl1<Nats::Tail::Tail>;
+#else
+using Primes = PrimesImpl2<TypeLists::Nil, Nats::Tail::Tail>;
+#endif
 
 #endif //TYPE_LISTS_HPP_

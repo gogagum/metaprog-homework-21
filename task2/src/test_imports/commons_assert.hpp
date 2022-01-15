@@ -8,7 +8,7 @@
 #pragma once
 
 #include <cstdlib>
-#include <iostream>
+//#include <iostream>
 #include <concepts>
 #include <optional>
 
@@ -18,7 +18,7 @@
 namespace mpg::detail {
 
 void fail(const char* file, size_t line) {
-    std::cerr << "Assertion failed: file \"" << file << "\", line " << line << std::endl;
+    //std::cerr << "Assertion failed: file \"" << file << "\", line " << line << std::endl;
     std::abort();
 }
 

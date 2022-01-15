@@ -15,5 +15,6 @@
 #include "scanl.hpp"
 #include "take_while.hpp"
 #include "zip_to_list.hpp"
+#include "skip_every_nth.hpp"
 
 #endif // TYPE_LISTS_IMPL_HPP_
